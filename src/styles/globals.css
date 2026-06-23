@@ -163,6 +163,39 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.02em; }
 .pill-doctor { color: #46C8B2; background: rgba(70,200,178,.12); box-shadow: inset 0 0 0 1px rgba(70,200,178,.25); }
 .pill-student { color: var(--ash); background: rgba(154,154,168,.1); box-shadow: inset 0 0 0 1px var(--hair-bright); }
 
+/* ── Button: extra variants + sizes (compose with .btn-primary / .btn-ghost) ── */
+.btn-subtle, .btn-danger { font-family: var(--font-display); font-weight: 600; display: inline-flex; align-items: center;
+  justify-content: center; gap: 9px; border-radius: var(--r-sm); cursor: pointer; white-space: nowrap; font-size: 14px;
+  padding: 12px 20px; position: relative; transition: transform .22s var(--ease), background .22s, border-color .22s, box-shadow .22s; }
+.btn-subtle { color: var(--t); background: var(--s2); border: 1px solid var(--br); }
+.btn-subtle:hover { background: var(--s3); border-color: var(--br2); }
+.btn-danger { color: #fff; background: linear-gradient(180deg, #f25563, #ef4444); border: none; box-shadow: 0 8px 24px rgba(239,68,68,.22); }
+.btn-danger:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(239,68,68,.3); }
+.btn-sm { padding: 8px 14px; font-size: 13px; }
+.btn-icon { padding: 0; width: 38px; height: 38px; }
+.btn-primary:disabled, .btn-ghost:disabled, .btn-subtle:disabled, .btn-danger:disabled { opacity: .5; cursor: not-allowed; transform: none !important; box-shadow: none; }
+
+/* ── Glass: non-lifting variant for content cards ── */
+.glass-flat:hover { border-color: var(--hair); transform: none; }
+.glass-flat:hover::before { opacity: 0; }
+
+/* ── Inputs ── */
+.field-label { display: block; font-size: 12.5px; font-weight: 600; color: var(--t2); margin-bottom: 7px; font-family: var(--font); }
+.input { width: 100%; box-sizing: border-box; padding: 11px 14px; border-radius: var(--r-sm); background: var(--s1);
+  border: 1px solid var(--br); color: var(--t); font-size: 14px; font-family: var(--font); outline: none;
+  transition: border-color .18s, box-shadow .18s; }
+.input::placeholder { color: var(--t3); }
+.input:focus { border-color: var(--accent-br); box-shadow: 0 0 0 3px var(--crimson-dim); }
+.input:disabled { opacity: .6; cursor: not-allowed; }
+textarea.input { resize: vertical; min-height: 96px; line-height: 1.6; }
+
+/* ── Skeleton shimmer ── */
+.skeleton { position: relative; overflow: hidden; background: var(--s2); border-radius: var(--r-sm); }
+.skeleton::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(244,243,246,.07), transparent); animation: shimmer 1.4s infinite; }
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .skeleton::after { animation: none; } }
+
 /* ═══════════════════════════════════════════════════════════
    BASE RESET
 ═══════════════════════════════════════════════════════════ */
