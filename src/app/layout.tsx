@@ -1,6 +1,7 @@
 // src/app/layout.tsx
 import type { Metadata, Viewport } from 'next'
 import { Toaster } from 'react-hot-toast'
+import { AmbientBackdrop } from '@/components/layout/AmbientBackdrop'
 import '@/styles/globals.css'
 
 export const metadata: Metadata = {
@@ -31,11 +32,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&family=Noto+Kufi+Arabic:wght@400;500;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Kufi+Arabic:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
       </head>
       <body>
+        <AmbientBackdrop />
         {children}
         <Toaster
           position="bottom-right"
@@ -45,7 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               color: '#f4f3f6',
               border: '1px solid rgba(244,243,246,0.1)',
               borderRadius: '12px',
-              fontFamily: 'Geist, sans-serif',
+              fontFamily: "'Instrument Sans', 'Noto Kufi Arabic', sans-serif",
               fontSize: '14px',
             },
           }}
