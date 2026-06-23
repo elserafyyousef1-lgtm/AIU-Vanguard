@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>AIU CS Hub — Semester 4</title>
+<meta name="description" content="Study platform for Semester 4 students at Alamein International University — Database Systems & Differential Equations">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════
+   TOKENS
+═══════════════════════════════════════════ */
+:root {
+  --f: 'Geist', sans-serif;
+  --m: 'Geist Mono', monospace;
+  --nav: 60px;
+  --ease: cubic-bezier(.22,1,.36,1);
+  --spring: cubic-bezier(.34,1.56,.64,1);
+  --out: cubic-bezier(0,0,.2,1);
+  --t: .18s;
+  --r: 12px; --rl: 18px; --rx: 24px;
+}
+[data-theme=dark] {
+  --bg: #080810; --s1: #0e0e18; --s2: #13131f; --s3: #1a1a28; --s4: #222233;
+  --br: rgba(255,255,255,.06); --br2: rgba(255,255,255,.11); --bra: rgba(99,102,241,.35);
+  --t0: #f0f0fa; --t1: #f0f0fa; --t2: #8080a0; --t3: #44445a;
+  --a: #6366f1; --a2: #818cf8; --p: #8b5cf6; --c: #06b6d4; --g: #10b981; --re: #ef4444; --y: #f59e0b;
+  --glow: rgba(99,102,241,.15);
+  --sh: 0 1px 3px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.3);
+  --shx: 0 4px 8px rgba(0,0,0,.6),0 20px 60px rgba(0,0,0,.5);
+  --sk: linear-gradient(90deg,#1a1a28 25%,#222233 50%,#1a1a28 75%);
+}
+[data-theme=light] {
+  --bg: #f8f8fb; --s1: #f0f0f6; --s2: #ffffff; --s3: #ebebf3; --s4: #e2e2ed;
+  --br: rgba(0,0,0,.06); --br2: rgba(0,0,0,.11); --bra: rgba(99,102,241,.3);
+  --t0: #0a0a18; --t1: #0a0a18; --t2: #55556a; --t3: #9090a8;
+  --a: #4f46e5; --a2: #6366f1; --p: #7c3aed; --c: #0891b2; --g: #059669; --re: #dc2626; --y: #d97706;
+  --glow: rgba(99,102,241,.07);
+  --sh: 0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.05);
+  --shx: 0 4px 8px rgba(0,0,0,.08),0 16px 48px rgba(0,0,0,.1);
+  --sk: linear-gradient(90deg,#ebebf3 25%,#f0f0f6 50%,#ebebf3 75%);
+}
+
+/* ═══════════════════════════════════════════
+   RESET
+═══════════════════════════════════════════ */
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--bg); color: var(--t1);
+  font-family: var(--f); font-size: 14px; line-height: 1.65;
+  overflow-x: hidden;
+  transition: background .2s var(--ease), color .2s var(--ease);
+}
+button { font-family: var(--f); cursor: pointer; border: none; background: none; }
+a { color: inherit; text-decoration: none; }
+
+/* ═══════════════════════════════════════════
+   3D CANVAS
+═══════════════════════════════════════════ */
+#bg-canvas {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  opacity: .5;
+}
+[data-theme=light] #bg-canvas { opacity: .18; }
+
+/* ═══════════════════════════════════════════
+   PROGRESS BAR
+═══════════════════════════════════════════ */
+#nprog {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+  height: 2px; pointer-events: none;
+  background: linear-gradient(90deg, var(--a), var(--c), var(--p));
+  transform: scaleX(0); transform-origin: left;
+  transition: transform .4s var(--ease), opacity .3s;
+  box-shadow: 0 0 10px var(--a);
+}
+#nprog.go { transform: scaleX(.8); }
+#nprog.done { transform: scaleX(1); opacity: 0; }
+
+/* Scroll progress */
+#scprog {
+  position: fixed; top: var(--nav); left: 0; z-index: 200;
+  height: 2px; width: 0; pointer-events: none;
+  background: linear-gradient(90deg, var(--a), var(--p));
+  transition: width .1s linear;
+}
+
+/* ═══════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════ */
+#toast-wrap {
+  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+  z-index: 9500; display: flex; flex-direction: column; gap: 8px;
+  align-items: center; pointer-events: none;
+}
+.t-el {
+  display: flex; align-items: center; gap: 9px;
+  padding: 10px 16px; border-radius: 12px;
+  background: var(--s2); border: 1px solid var(--br2);
+  box-shadow: var(--shx); font-size: 12.5px; font-weight: 500;
+  color: var(--t1); pointer-events: all; white-space: nowrap;
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  animation: tIn .32s var(--spring) both;
+}
+.t-el.out { animation: tOut .22s var(--out) both; }
+.t-el.ok { border-color: rgba(16,185,129,.3); }
+.t-el.er { border-color: rgba(239,68,68,.3); }
+.t-el.in { border-color: rgba(99,102,241,.3); }
+@keyframes tIn { from { opacity:0; transform:translateY(10px) scale(.9); } to { opacity:1; transform:translateY(0) scale(1); } }
+@keyframes tOut { from { opacity:1; transform:translateY(0) scale(1); } to { opacity:0; transform:translateY(-6px) scale(.92); } }
+
+/* ═══════════════════════════════════════════
+   COMMAND PALETTE
+═══════════════════════════════════════════ */
+#cmd-ov {
+  position: fixed; inset: 0; z-index: 8000;
+  background: rgba(0,0,0,.6);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  display: none; align-items: flex-start; justify-content: center;
+  padding: 100px 16px 16px;
+}
+#cmd-ov.open { display: flex; }
+#cmd-box {
+  width: 100%; max-width: 580px;
+  background: var(--s1); border: 1px solid var(--br2);
+  border-radius: 18px; overflow: hidden;
+  box-shadow: 0 40px 80px rgba(0,0,0,.7), 0 0 0 1px rgba(99,102,241,.12);
+  animation: cmdPop .28s var(--spring) both;
+}
+@keyframes cmdPop { from { opacity:0; transform:scale(.92) translateY(-12px); } to { opacity:1; transform:scale(1) translateY(0); } }
+#cmd-top {
+  display: flex; align-items: center; gap: 10px; padding: 14px 18px;
+  border-bottom: 1px solid var(--br);
+}
+#cmd-inp {
+  flex: 1; background: none; border: none; outline: none;
+  font-family: var(--f); font-size: 15px; color: var(--t1);
+  caret-color: var(--a);
+}
+#cmd-inp::placeholder { color: var(--t3); }
+.cmd-esc { font-size: 10px; color: var(--t3); font-family: var(--m); flex-shrink: 0; }
+#cmd-list { padding: 8px; max-height: 380px; overflow-y: auto; }
+.cmd-sec { font-size: 9.5px; font-weight: 700; color: var(--t3); letter-spacing: .12em;
+           text-transform: uppercase; padding: 8px 10px 4px; font-family: var(--m); }
+.cmd-row {
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 12px; border-radius: 10px; cursor: pointer;
+  border: 1px solid transparent; transition: all .1s var(--ease);
+}
+.cmd-row:hover, .cmd-row.on { background: var(--s3); border-color: var(--br); }
+.cmd-ic {
+  width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+  background: var(--s3); border: 1px solid var(--br);
+  display: flex; align-items: center; justify-content: center; font-size: 13px;
+}
+.cmd-name { font-size: 13px; font-weight: 500; color: var(--t1); flex: 1; }
+.cmd-desc { font-size: 11px; color: var(--t3); font-family: var(--m); }
+.cmd-k { display: flex; gap: 3px; }
+.cmd-key {
+  font-family: var(--m); font-size: 10px; color: var(--t3);
+  background: var(--s3); border: 1px solid var(--br);
+  border-radius: 4px; padding: 1px 5px;
+}
+#cmd-ft {
+  padding: 10px 18px; border-top: 1px solid var(--br);
+  display: flex; gap: 14px;
+}
+.cmd-fh { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--t3); font-family: var(--m); }
+
+/* ═══════════════════════════════════════════
+   NAV
+═══════════════════════════════════════════ */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 300;
+  height: var(--nav); display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px;
+  background: rgba(8,8,16,.88);
+  backdrop-filter: blur(22px) saturate(1.8); -webkit-backdrop-filter: blur(22px) saturate(1.8);
+  border-bottom: 1px solid var(--br);
+  transition: background .2s var(--ease);
+}
+[data-theme=light] nav { background: rgba(248,248,251,.92); }
+.n-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.n-logo {
+  width: 34px; height: 34px; border-radius: 10px;
+  background: linear-gradient(135deg, var(--a), var(--p));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 900; color: #fff;
+  box-shadow: 0 2px 10px rgba(99,102,241,.4); flex-shrink: 0;
+  letter-spacing: -.04em;
+}
+.n-name { font-size: 14px; font-weight: 700; letter-spacing: -.02em; }
+.n-sem { font-size: 10px; color: var(--t3); font-family: var(--m); }
+.n-r { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+.ibtn {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: var(--s3); border: 1px solid var(--br);
+  color: var(--t2); font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--t) var(--ease);
+}
+.ibtn:hover { color: var(--t1); border-color: var(--br2); }
+.cmd-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 11px; border-radius: 8px;
+  background: var(--s3); border: 1px solid var(--br);
+  color: var(--t3); font-size: 11px; font-family: var(--m);
+  transition: all var(--t) var(--ease);
+}
+.cmd-btn:hover { color: var(--t2); border-color: var(--br2); }
+.cmd-btn kbd {
+  background: var(--s4); border: 1px solid var(--br2);
+  border-radius: 4px; padding: 0 4px; font-size: 10px; font-family: var(--m);
+}
+.ham { display: none; }
+
+/* ═══════════════════════════════════════════
+   MOBILE MENU
+═══════════════════════════════════════════ */
+#mob-menu {
+  display: none; flex-direction: column; gap: 4px;
+  position: fixed; top: var(--nav); left: 0; right: 0; z-index: 299;
+  padding: 10px 16px 16px;
+  background: rgba(8,8,16,.97);
+  backdrop-filter: blur(22px); border-bottom: 1px solid var(--br);
+}
+[data-theme=light] #mob-menu { background: rgba(248,248,251,.97); }
+#mob-menu.open { display: flex; animation: mobIn .18s var(--out) both; }
+@keyframes mobIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+.m-lnk {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 14px; border-radius: 10px; font-size: 14px; font-weight: 500;
+  color: var(--t2); border: 1px solid transparent;
+  transition: all var(--t) var(--ease); text-align: left;
+}
+.m-lnk:hover { background: var(--s3); color: var(--t1); border-color: var(--br); }
+
+/* ═══════════════════════════════════════════
+   MAIN LAYOUT
+═══════════════════════════════════════════ */
+main {
+  max-width: 1020px; margin: 0 auto;
+  padding: calc(var(--nav) + 40px) 22px 120px;
+  position: relative; z-index: 1;
+}
+
+/* ═══════════════════════════════════════════
+   HERO
+═══════════════════════════════════════════ */
+.hero { text-align: center; padding: 50px 0 40px; }
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--m); font-size: 10.5px; color: var(--a2);
+  letter-spacing: .14em; text-transform: uppercase;
+  background: rgba(99,102,241,.08); border: 1px solid rgba(99,102,241,.2);
+  padding: 5px 16px; border-radius: 999px; margin-bottom: 22px;
+}
+.eyebrow::before { content: '◆'; font-size: 7px; }
+.hero h1 {
+  font-size: clamp(38px, 6vw, 78px); font-weight: 900;
+  letter-spacing: -.055em; line-height: 1.02; margin-bottom: 20px;
+  background: linear-gradient(135deg, var(--t1) 0%, rgba(240,240,250,.6) 40%, var(--a2) 70%, var(--p) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+[data-theme=light] .hero h1 {
+  background: linear-gradient(135deg, #08081a 0%, #2a2a50 40%, var(--a) 70%, var(--p) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.hero-sub { font-size: 16px; color: var(--t2); max-width: 460px; margin: 0 auto 32px; line-height: 1.7; }
+.hero-meta {
+  display: inline-flex; align-items: stretch;
+  background: var(--s2); border: 1px solid var(--br); border-radius: var(--rl);
+  overflow: hidden; box-shadow: var(--sh);
+}
+.hm-item { padding: 14px 22px; text-align: center; position: relative; }
+.hm-item + .hm-item::before {
+  content: ''; position: absolute; left: 0; top: 22%; height: 56%; width: 1px; background: var(--br);
+}
+.hm-v { font-size: 22px; font-weight: 800; letter-spacing: -.04em; font-family: var(--m); color: var(--t1); }
+.hm-l { font-size: 10.5px; color: var(--t2); margin-top: 2px; font-family: var(--m); }
+
+/* ═══════════════════════════════════════════
+   SECTION HEADER
+═══════════════════════════════════════════ */
+.sec-hd { margin: 48px 0 22px; }
+.sec-eyebrow {
+  font-family: var(--m); font-size: 10px; color: var(--a2);
+  letter-spacing: .14em; text-transform: uppercase; margin-bottom: 6px;
+}
+.sec-title { font-size: 22px; font-weight: 700; letter-spacing: -.035em; color: var(--t1); }
+.sec-sub { font-size: 13px; color: var(--t2); margin-top: 4px; }
+
+/* ═══════════════════════════════════════════
+   COURSE CARDS
+═══════════════════════════════════════════ */
+.course-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 16px;
+}
+.course-card {
+  background: var(--s2); border: 1px solid var(--br);
+  border-radius: var(--rx); padding: 28px; cursor: pointer;
+  position: relative; overflow: hidden;
+  transition: all .25s var(--ease); box-shadow: var(--sh);
+  text-decoration: none; display: block;
+}
+.course-card::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, var(--card-accent, rgba(99,102,241,.06)), transparent 65%);
+  opacity: 0; transition: opacity .2s;
+}
+.course-card::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--card-color-a, var(--a)), var(--card-color-b, var(--p)));
+  transform: scaleX(0); transform-origin: left; transition: transform .3s var(--ease);
+}
+.course-card:hover { border-color: var(--bra); transform: translateY(-3px); box-shadow: var(--shx); }
+.course-card:hover::before { opacity: 1; }
+.course-card:hover::after { transform: scaleX(1); }
+.course-card:active { transform: translateY(-1px); }
+
+.cc-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
+.cc-icon {
+  width: 48px; height: 48px; border-radius: 14px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 22px;
+  border: 1px solid var(--br2);
+}
+.cc-badge {
+  font-family: var(--m); font-size: 9.5px; font-weight: 700;
+  letter-spacing: .08em; padding: 3px 9px; border-radius: 999px; text-transform: uppercase;
+}
+.cc-code { font-family: var(--m); font-size: 11px; color: var(--t3); margin-bottom: 5px; letter-spacing: .05em; }
+.cc-name { font-size: 20px; font-weight: 700; letter-spacing: -.03em; color: var(--t1); margin-bottom: 6px; }
+.cc-desc { font-size: 13px; color: var(--t2); line-height: 1.6; margin-bottom: 18px; }
+.cc-stats {
+  display: flex; gap: 16px; padding-top: 16px; border-top: 1px solid var(--br); margin-bottom: 18px;
+}
+.cc-stat { text-align: center; flex: 1; }
+.cc-sv { font-size: 16px; font-weight: 700; letter-spacing: -.03em; font-family: var(--m); color: var(--t1); }
+.cc-sl { font-size: 10px; color: var(--t3); margin-top: 2px; font-family: var(--m); }
+.cc-btn {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 16px; border-radius: var(--r);
+  font-size: 13px; font-weight: 600; color: #fff;
+  transition: all .18s var(--ease);
+}
+.cc-btn:hover { filter: brightness(1.1); }
+.cc-arrow { font-size: 16px; transition: transform .2s var(--spring); }
+.course-card:hover .cc-arrow { transform: translate(3px,-3px); }
+
+/* Tags */
+.cc-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.tag {
+  font-size: 10.5px; padding: 3px 9px; border-radius: 999px;
+  font-family: var(--m); font-weight: 500; letter-spacing: .03em;
+  background: var(--s3); border: 1px solid var(--br); color: var(--t2);
+}
+
+/* ═══════════════════════════════════════════
+   FEATURE STRIP
+═══════════════════════════════════════════ */
+.features {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px; margin-top: 40px;
+}
+.feat {
+  background: var(--s2); border: 1px solid var(--br); border-radius: var(--rl);
+  padding: 18px; text-align: center; transition: all .2s var(--ease);
+}
+.feat:hover { border-color: var(--bra); transform: translateY(-2px); box-shadow: var(--shx); }
+.feat-ic { font-size: 22px; margin-bottom: 9px; }
+.feat-name { font-size: 12.5px; font-weight: 600; color: var(--t1); margin-bottom: 4px; }
+.feat-desc { font-size: 11.5px; color: var(--t2); line-height: 1.5; }
+
+/* ═══════════════════════════════════════════
+   SCROLL REVEAL
+═══════════════════════════════════════════ */
+.reveal { opacity: 0; transform: translateY(22px); transition: opacity .55s var(--ease), transform .55s var(--ease); }
+.reveal.vis { opacity: 1; transform: translateY(0); }
+
+/* ═══════════════════════════════════════════
+   CURSOR TRAIL
+═══════════════════════════════════════════ */
+.c-trail {
+  position: fixed; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--a); pointer-events: none; z-index: 9998;
+  transform: translate(-50%, -50%); mix-blend-mode: screen;
+  animation: trailFade .5s var(--out) forwards;
+}
+@keyframes trailFade { from { opacity: .6; transform: translate(-50%,-50%) scale(1); } to { opacity: 0; transform: translate(-50%,-50%) scale(0); } }
+
+/* ═══════════════════════════════════════════
+   FOOTER
+═══════════════════════════════════════════ */
+footer {
+  text-align: center; padding: 32px 20px 40px;
+  font-size: 12px; color: var(--t3); font-family: var(--m);
+  border-top: 1px solid var(--br); margin-top: 60px;
+  position: relative; z-index: 1;
+}
+footer span { color: var(--a2); }
+
+/* ═══════════════════════════════════════════
+   MOBILE
+═══════════════════════════════════════════ */
+@media (max-width: 700px) {
+  .ham { display: flex; }
+  .cmd-btn { display: none; }
+  .course-grid { grid-template-columns: 1fr; }
+  .features { grid-template-columns: repeat(2,1fr); }
+  .hero h1 { font-size: clamp(36px, 9vw, 52px); }
+  .hero-meta { flex-wrap: wrap; justify-content: center; }
+  #toast-wrap { width: calc(100% - 32px); bottom: 88px; }
+  .t-el { max-width: 100%; white-space: normal; }
+  #cmd-ov { padding: 14px 10px; }
+}
+@media (max-width: 480px) {
+  .features { grid-template-columns: 1fr; }
+  .cc-stats { gap: 8px; }
+}
+
+/* ═══════════════════════════════════════════
+   ANIMATIONS
+═══════════════════════════════════════════ */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+body { animation: fadeIn .4s var(--out) both; }
+</style>
+</head>
+<body>
+
+<!-- 3D CANVAS -->
+<canvas id="bg-canvas" aria-hidden="true"></canvas>
+
+<!-- PROGRESS BAR -->
+<div id="nprog" role="progressbar" aria-hidden="true"></div>
+<div id="scprog" aria-hidden="true"></div>
+
+<!-- TOAST CONTAINER -->
+<div id="toast-wrap" aria-live="polite" role="status"></div>
+
+<!-- COMMAND PALETTE -->
+<div id="cmd-ov" role="dialog" aria-modal="true" aria-label="Command palette" onclick="if(event.target===this)closeCmd()">
+  <div id="cmd-box">
+    <div id="cmd-top">
+      <span style="color:var(--t3);font-size:16px" aria-hidden="true">⌕</span>
+      <input id="cmd-inp" placeholder="Search courses, features, shortcuts..." autocomplete="off"
+             oninput="filterCmd(this.value)" onkeydown="cmdNav(event)" aria-label="Command palette search">
+      <span class="cmd-esc">ESC to close</span>
+    </div>
+    <div id="cmd-list" role="listbox"></div>
+    <div id="cmd-ft">
+      <div class="cmd-fh"><span class="cmd-key">↑↓</span> navigate</div>
+      <div class="cmd-fh"><span class="cmd-key">↵</span> open</div>
+      <div class="cmd-fh"><span class="cmd-key">ESC</span> close</div>
+    </div>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav role="navigation">
+  <div class="n-brand">
+    <div class="n-logo" aria-hidden="true">AIU</div>
+    <div>
+      <div class="n-name">CS Hub</div>
+      <div class="n-sem">Semester 4 · 2025–2026</div>
+    </div>
+  </div>
+  <div class="n-r">
+    <button class="cmd-btn" onclick="openCmd()" aria-label="Open command palette (Ctrl+K)">
+      <span>⌘K</span> <kbd>Ctrl</kbd>
+    </button>
+    <button id="sound-btn" class="ibtn" onclick="toggleSound()" title="Toggle hover sounds" aria-label="Toggle hover sounds">🔊</button>
+    <button id="theme-btn" class="ibtn" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle dark or light theme">☀</button>
+    <button class="ibtn ham" onclick="toggleMob()" aria-label="Toggle navigation menu" aria-expanded="false" id="ham-btn">☰</button>
+  </div>
+</nav>
+
+<!-- MOBILE MENU -->
+<nav id="mob-menu" aria-label="Mobile navigation">
+  <a class="m-lnk" href="CSE221.html" aria-label="Open Database Systems course">
+    📊 Database Systems (CSE221)
+  </a>
+  <a class="m-lnk" href="MAT312.html" aria-label="Open Differential Equations course">
+    📐 Differential Equations (MAT312)
+  </a>
+</nav>
+
+<!-- MAIN -->
+<main>
+
+  <!-- HERO -->
+  <section class="hero reveal" aria-labelledby="hero-title">
+    <div class="eyebrow">AIU · Semester 4 · Spring 2025–2026</div>
+    <h1 id="hero-title">AIU CS Hub</h1>
+    <p class="hero-sub">Your complete study platform for Database Systems &amp; Differential Equations — built for speed, built to help you pass.</p>
+    <div class="hero-meta" role="group" aria-label="Platform statistics">
+      <div class="hm-item"><div class="hm-v">2</div><div class="hm-l">Courses</div></div>
+      <div class="hm-item"><div class="hm-v">22</div><div class="hm-l">Lectures</div></div>
+      <div class="hm-item"><div class="hm-v">100</div><div class="hm-l">Exam Q's</div></div>
+      <div class="hm-item"><div class="hm-v">256+</div><div class="hm-l">Study Q's</div></div>
+    </div>
+  </section>
+
+  <!-- COURSES -->
+  <section aria-labelledby="courses-title">
+    <div class="sec-hd reveal">
+      <div class="sec-eyebrow">Semester 4</div>
+      <h2 class="sec-title" id="courses-title">Your Courses</h2>
+      <p class="sec-sub">Choose a course to start studying — all content is free, no login required.</p>
+    </div>
+
+    <div class="course-grid">
+
+      <!-- CSE221 -->
+      <a class="course-card reveal" href="CSE221.html" aria-label="Open Database Systems CSE221 course"
+         style="--card-accent:rgba(99,102,241,.06);--card-color-a:#6366f1;--card-color-b:#8b5cf6;">
+        <div class="cc-top">
+          <div class="cc-icon" style="background:rgba(99,102,241,.1);border-color:rgba(99,102,241,.2)">📊</div>
+          <div class="cc-badge" style="background:rgba(99,102,241,.1);color:#a5b4fc;border:1px solid rgba(99,102,241,.2)">Required</div>
+        </div>
+        <div class="cc-code">CSE221</div>
+        <div class="cc-name">Database Systems</div>
+        <div class="cc-desc">Master relational databases, ER diagrams, normalization, SQL, join algorithms, and query optimization.</div>
+        <div class="cc-tags">
+          <span class="tag">ER Diagrams</span>
+          <span class="tag">Normalization</span>
+          <span class="tag">SQL</span>
+          <span class="tag">Joins</span>
+          <span class="tag">Laplace</span>
+        </div>
+        <div class="cc-stats" role="group" aria-label="Course statistics">
+          <div class="cc-stat"><div class="cc-sv">9</div><div class="cc-sl">Lectures</div></div>
+          <div class="cc-stat"><div class="cc-sv">60</div><div class="cc-sl">Exam Q's</div></div>
+          <div class="cc-stat"><div class="cc-sv">37</div><div class="cc-sl">Study Cards</div></div>
+          <div class="cc-stat"><div class="cc-sv">AI</div><div class="cc-sl">Tutor</div></div>
+        </div>
+        <div class="cc-btn" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)" aria-hidden="true">
+          <span>Open Course</span>
+          <span class="cc-arrow">↗</span>
+        </div>
+      </a>
+
+      <!-- MAT312 -->
+      <a class="course-card reveal" href="MAT312.html" aria-label="Open Differential Equations MAT312 course"
+         style="--card-accent:rgba(6,182,212,.05);--card-color-a:#06b6d4;--card-color-b:#8b5cf6;">
+        <div class="cc-top">
+          <div class="cc-icon" style="background:rgba(6,182,212,.1);border-color:rgba(6,182,212,.2)">📐</div>
+          <div class="cc-badge" style="background:rgba(6,182,212,.1);color:#67e8f9;border:1px solid rgba(6,182,212,.2)">Required</div>
+        </div>
+        <div class="cc-code">MAT312</div>
+        <div class="cc-name">Differential Equations</div>
+        <div class="cc-desc" lang="en">Separable equations, Laplace transforms, Fourier series, Cauchy-Euler, and variation of parameters — all 9 topics.</div>
+        <div class="cc-tags">
+          <span class="tag">Separable</span>
+          <span class="tag">Laplace</span>
+          <span class="tag">Fourier</span>
+          <span class="tag">Cauchy-Euler</span>
+        </div>
+        <div class="cc-stats" role="group" aria-label="Course statistics">
+          <div class="cc-stat"><div class="cc-sv">9</div><div class="cc-sl">Sheets</div></div>
+          <div class="cc-stat"><div class="cc-sv">40</div><div class="cc-sl">Exam Q's</div></div>
+          <div class="cc-stat"><div class="cc-sv">133</div><div class="cc-sl">Quiz Q's</div></div>
+          <div class="cc-stat"><div class="cc-sv">43</div><div class="cc-sl">Flashcards</div></div>
+        </div>
+        <div class="cc-btn" style="background:linear-gradient(135deg,#06b6d4,#8b5cf6)" aria-hidden="true">
+          <span>Open Course</span>
+          <span class="cc-arrow">↗</span>
+        </div>
+      </a>
+
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section aria-labelledby="features-title">
+    <div class="sec-hd reveal">
+      <div class="sec-eyebrow">Platform</div>
+      <h2 class="sec-title" id="features-title">Everything You Need</h2>
+    </div>
+    <div class="features" role="list">
+      <div class="feat reveal" role="listitem">
+        <div class="feat-ic" aria-hidden="true">📖</div>
+        <div class="feat-name">Study Sheets</div>
+        <div class="feat-desc">Structured notes with worked examples, formulas, and exam tips for every lecture</div>
+      </div>
+      <div class="feat reveal" role="listitem">
+        <div class="feat-ic" aria-hidden="true">🎮</div>
+        <div class="feat-name">Per-Lecture Quizzes</div>
+        <div class="feat-desc">Instant feedback with full explanations — know exactly what you got wrong and why</div>
+      </div>
+      <div class="feat reveal" role="listitem">
+        <div class="feat-ic" aria-hidden="true">📝</div>
+        <div class="feat-name">Final Exam Mode</div>
+        <div class="feat-desc">Full mock exams — 60 Q's for CSE221, 40 Q's for MAT312 — with scoring and retry</div>
+      </div>
+      <div class="feat reveal" role="listitem">
+        <div class="feat-ic" aria-hidden="true">🃏</div>
+        <div class="feat-name">Flashcards</div>
+        <div class="feat-desc">Tap to flip — quick concept reviews for last-minute revision before the exam</div>
+      </div>
+      <div class="feat reveal" role="listitem">
+        <div class="feat-ic" aria-hidden="true">✦</div>
+        <div class="feat-name">AI Tutor (CSE221)</div>
+        <div class="feat-desc" lang="ar">اسأل أي سؤال بالعربي أو الإنجليزي — شرح فوري لأي مفهوم</div>
+      </div>
+      <div class="feat reveal" role="listitem">
+        <div class="feat-ic" aria-hidden="true">📐</div>
+        <div class="feat-name">Formula Sheet</div>
+        <div class="feat-desc">All MAT312 formulas in one place — organized by topic for fast exam revision</div>
+      </div>
+      <div class="feat reveal" role="listitem">
+        <div class="feat-ic" aria-hidden="true">⌘</div>
+        <div class="feat-name">Command Palette</div>
+        <div class="feat-desc">Press Ctrl+K anywhere to jump to any lecture, quiz, or exam instantly</div>
+      </div>
+      <div class="feat reveal" role="listitem">
+        <div class="feat-ic" aria-hidden="true">📱</div>
+        <div class="feat-name">Mobile First</div>
+        <div class="feat-desc">Large tap targets, swipeable tabs, optimized for studying on your phone</div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <p>AIU CS Hub · Semester 4 · Spring 2025–2026 · Built for <span>Alamein International University</span> students</p>
+  <p style="margin-top:6px">Database Systems (CSE221) · Differential Equations (MAT312)</p>
+</footer>
+
+<script>
+/* ═══════════════════════════════════════════
+   3D BACKGROUND
+═══════════════════════════════════════════ */
+(function init3D() {
+  const canvas = document.getElementById('bg-canvas');
+  if (!canvas || typeof THREE === 'undefined') return;
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x000000, 0);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera.position.z = 28;
+
+  // Particles
+  const geo = new THREE.BufferGeometry();
+  const N = 140;
+  const pos = new Float32Array(N * 3);
+  const col = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    pos[i*3]   = (Math.random()-.5)*90;
+    pos[i*3+1] = (Math.random()-.5)*65;
+    pos[i*3+2] = (Math.random()-.5)*35;
+    col[i*3]   = 0.39; col[i*3+1] = 0.40; col[i*3+2] = 0.95;
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.32, vertexColors: true, transparent: true, opacity: .75 }));
+  scene.add(pts);
+
+  // Connection lines
+  const lmat = new THREE.LineBasicMaterial({ color: 0x6366f1, transparent: true, opacity: .05 });
+  for (let i = 0; i < 50; i++) {
+    const a = Math.floor(Math.random()*N)*3, b = Math.floor(Math.random()*N)*3;
+    const lg = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(pos[a],pos[a+1],pos[a+2]),
+      new THREE.Vector3(pos[b],pos[b+1],pos[b+2])
+    ]);
+    scene.add(new THREE.Line(lg, lmat));
+  }
+
+  // Torus rings
+  const rings = [];
+  const rmat = new THREE.MeshBasicMaterial({ color: 0x6366f1, transparent: true, opacity: .07, wireframe: true });
+  for (let i = 0; i < 5; i++) {
+    const r = new THREE.Mesh(new THREE.TorusGeometry(7 + i*2.5, 0.07, 8, 60), rmat.clone());
+    r.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, 0);
+    r.position.set((Math.random()-.5)*30,(Math.random()-.5)*20,(Math.random()-.5)*10-8);
+    scene.add(r); rings.push(r);
+  }
+
+  // Icosahedron
+  const ico = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(13, 1),
+    new THREE.MeshBasicMaterial({ color: 0x8b5cf6, transparent: true, opacity: .045, wireframe: true })
+  );
+  ico.position.set(18, -4, -14);
+  scene.add(ico);
+
+  let mouse = { x: 0, y: 0 }, t = 0;
+  document.addEventListener('mousemove', e => {
+    mouse.x = (e.clientX/window.innerWidth-.5)*2;
+    mouse.y = -(e.clientY/window.innerHeight-.5)*2;
+  });
+
+  (function animate() {
+    requestAnimationFrame(animate);
+    t += .003;
+    pts.rotation.y = t*.07 + mouse.x*.04;
+    pts.rotation.x = t*.035 + mouse.y*.025;
+    rings.forEach((r,i) => { r.rotation.x += .003+i*.001; r.rotation.z += .002; });
+    ico.rotation.y += .0018; ico.rotation.x += .0009;
+    camera.position.x += (mouse.x*2.5 - camera.position.x)*.03;
+    camera.position.y += (mouse.y*1.8 - camera.position.y)*.03;
+    camera.lookAt(scene.position);
+    renderer.render(scene, camera);
+  })();
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+})();
+
+/* ═══════════════════════════════════════════
+   PROGRESS BAR
+═══════════════════════════════════════════ */
+const NP = {
+  el: document.getElementById('nprog'),
+  start() {
+    this.el.style.transition='none'; this.el.style.transform='scaleX(0)'; this.el.style.opacity='1';
+    requestAnimationFrame(()=>{ this.el.style.transition='transform 2s cubic-bezier(.1,.9,.2,1)'; this.el.style.transform='scaleX(.75)'; });
+  },
+  done() {
+    this.el.style.transition='transform .2s ease,opacity .3s ease';
+    this.el.style.transform='scaleX(1)';
+    setTimeout(()=>{ this.el.style.opacity='0'; setTimeout(()=>{ this.el.style.transform='scaleX(0)'; },300); },200);
+  }
+};
+
+/* ═══════════════════════════════════════════
+   SCROLL PROGRESS
+═══════════════════════════════════════════ */
+const scProg = document.getElementById('scprog');
+window.addEventListener('scroll', ()=>{
+  const d = document.documentElement;
+  const pct = (window.scrollY/(d.scrollHeight-d.clientHeight))*100||0;
+  scProg.style.width = Math.min(pct,100)+'%';
+}, { passive: true });
+
+/* ═══════════════════════════════════════════
+   SCROLL REVEAL
+═══════════════════════════════════════════ */
+const revObs = new IntersectionObserver(entries=>{
+  entries.forEach((e,i)=>{ if(e.isIntersecting){ setTimeout(()=>e.target.classList.add('vis'), i*50); revObs.unobserve(e.target); } });
+}, { threshold: .06, rootMargin: '0px 0px -30px 0px' });
+document.querySelectorAll('.reveal').forEach((el,i)=>{ el.style.transitionDelay=(i%4)*.06+'s'; revObs.observe(el); });
+
+/* ═══════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════ */
+function toast(msg, type='', dur=3000) {
+  const w = document.getElementById('toast-wrap');
+  const el = document.createElement('div');
+  el.className = `t-el${type?' '+type:''}`;
+  el.setAttribute('role','alert');
+  const icons = { ok:'✓', er:'✗', in:'◆' };
+  el.innerHTML = `<span aria-hidden="true">${icons[type]||'◆'}</span><span>${msg}</span>`;
+  w.appendChild(el);
+  const t = setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(),240); }, dur);
+  el.onclick = ()=>{ clearTimeout(t); el.classList.add('out'); setTimeout(()=>el.remove(),240); };
+}
+
+/* ═══════════════════════════════════════════
+   THEME
+═══════════════════════════════════════════ */
+function toggleTheme() {
+  const d = document.documentElement;
+  const isDark = d.getAttribute('data-theme')==='dark';
+  d.setAttribute('data-theme', isDark?'light':'dark');
+  document.getElementById('theme-btn').textContent = isDark?'🌙':'☀';
+  toast(isDark?'☀ Light mode':'🌙 Dark mode','in',2000);
+  playSound('nav');
+}
+
+/* ═══════════════════════════════════════════
+   MOBILE MENU
+═══════════════════════════════════════════ */
+function toggleMob() {
+  const m = document.getElementById('mob-menu');
+  const btn = document.getElementById('ham-btn');
+  const open = m.classList.toggle('open');
+  btn.textContent = open ? '✕' : '☰';
+  btn.setAttribute('aria-expanded', open);
+}
+document.addEventListener('keydown', e => {
+  if (e.key==='Escape') { document.getElementById('mob-menu').classList.remove('open'); document.getElementById('ham-btn').textContent='☰'; }
+});
+
+/* ═══════════════════════════════════════════
+   SOUND SYSTEM
+═══════════════════════════════════════════ */
+let _actx = null, soundOn = true;
+function getACtx() {
+  if (!_actx) { try { _actx = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){} }
+  return _actx;
+}
+function playSound(type) {
+  if (!soundOn) return;
+  const ctx = getACtx(); if (!ctx) return;
+  if (ctx.state==='suspended') ctx.resume();
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator(), g = ctx.createGain();
+  osc.connect(g); g.connect(ctx.destination);
+  const sounds = {
+    card:  [560, 610, .03, .1],
+    nav:   [480, 540, .04, .13],
+    click: [720, 360, .055, .08],
+    ok:    [520, 700, .05, .14],
+  };
+  const [f1, f2, vol, dur] = sounds[type]||sounds.nav;
+  osc.type = type==='click'?'triangle':'sine';
+  osc.frequency.setValueAtTime(f1, now);
+  osc.frequency.exponentialRampToValueAtTime(f2, now+dur*.6);
+  g.gain.setValueAtTime(0, now);
+  g.gain.linearRampToValueAtTime(vol, now+.01);
+  g.gain.exponentialRampToValueAtTime(.001, now+dur);
+  osc.start(now); osc.stop(now+dur+.01);
+}
+function toggleSound() {
+  soundOn = !soundOn;
+  document.getElementById('sound-btn').textContent = soundOn?'🔊':'🔇';
+  toast(soundOn?'🔊 Sounds on':'🔇 Sounds off','in',1800);
+}
+// Attach sounds to interactive elements
+document.querySelectorAll('.course-card').forEach(el=>el.addEventListener('mouseenter',()=>playSound('card')));
+document.querySelectorAll('.feat').forEach(el=>el.addEventListener('mouseenter',()=>playSound('nav')));
+document.querySelectorAll('.ibtn, .cmd-btn').forEach(el=>el.addEventListener('mouseenter',()=>playSound('click')));
+
+/* ═══════════════════════════════════════════
+   COMMAND PALETTE
+═══════════════════════════════════════════ */
+const CMD = [
+  { ic:'📊', name:'Database Systems', desc:'CSE221 — Lectures, Quiz, Exam', action:()=>{ NP.start(); window.location.href='CSE221.html'; } },
+  { ic:'📐', name:'Differential Equations', desc:'MAT312 — 9 Sheets, Formula Sheet, Exam', action:()=>{ NP.start(); window.location.href='MAT312.html'; } },
+  { ic:'☀', name:'Toggle Theme', desc:'Switch dark / light mode', action:()=>toggleTheme() },
+  { ic:'🔊', name:'Toggle Sound', desc:'Enable or disable hover sounds', action:()=>toggleSound() },
+  { ic:'📊', name:'CSE221 — ER Diagrams', desc:'Lecture 2 · Chen notation, cardinality', action:()=>{ NP.start(); window.location.href='CSE221.html'; } },
+  { ic:'📊', name:'CSE221 — Normalization', desc:'Lecture 5 · 1NF, 2NF, 3NF, BCNF', action:()=>{ NP.start(); window.location.href='CSE221.html'; } },
+  { ic:'📊', name:'CSE221 — Final Exam (60Q)', desc:'All 9 lectures · MCQ + T/F', action:()=>{ NP.start(); window.location.href='CSE221.html#exam'; } },
+  { ic:'📐', name:'MAT312 — Laplace Transform', desc:'Sheet 7 · Full Laplace theory', action:()=>{ NP.start(); window.location.href='MAT312.html'; } },
+  { ic:'📐', name:'MAT312 — Fourier Series', desc:'Sheet 9 · Periodic functions', action:()=>{ NP.start(); window.location.href='MAT312.html'; } },
+  { ic:'📐', name:'MAT312 — Final Exam (40Q)', desc:'All sheets · MCQ', action:()=>{ NP.start(); window.location.href='MAT312.html'; } },
+];
+let _cmdFiltered = CMD, _cmdActive = -1;
+
+function openCmd() {
+  document.getElementById('cmd-ov').classList.add('open');
+  document.getElementById('cmd-inp').value = '';
+  _cmdFiltered = CMD; _cmdActive = -1;
+  renderCmd();
+  setTimeout(()=>document.getElementById('cmd-inp').focus(), 50);
+  playSound('click');
+}
+function closeCmd() {
+  document.getElementById('cmd-ov').classList.remove('open');
+}
+function renderCmd() {
+  const r = document.getElementById('cmd-list');
+  if (!_cmdFiltered.length) { r.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3);font-size:13px">No results</div>'; return; }
+  r.innerHTML = _cmdFiltered.map((c,i)=>`
+    <div class="cmd-row${_cmdActive===i?' on':''}" role="option" data-idx="${i}"
+         onclick="runCmd(${i})" onmouseover="setActive(${i})"
+         aria-selected="${_cmdActive===i}">
+      <div class="cmd-ic" aria-hidden="true">${c.ic}</div>
+      <div style="flex:1;min-width:0">
+        <div class="cmd-name">${c.name}</div>
+        <div class="cmd-desc">${c.desc}</div>
+      </div>
+    </div>`).join('');
+}
+function filterCmd(q) {
+  const lq = q.toLowerCase();
+  _cmdFiltered = q ? CMD.filter(c=>c.name.toLowerCase().includes(lq)||c.desc.toLowerCase().includes(lq)) : CMD;
+  _cmdActive = -1; renderCmd();
+}
+function setActive(i) {
+  _cmdActive = i;
+  document.querySelectorAll('.cmd-row').forEach((el,j)=>{ el.classList.toggle('on',j===i); el.setAttribute('aria-selected',j===i); });
+}
+function runCmd(i) {
+  const item = _cmdFiltered[i]; if(item){ closeCmd(); item.action(); }
+}
+function cmdNav(e) {
+  const items = document.querySelectorAll('.cmd-row');
+  if (e.key==='ArrowDown') { e.preventDefault(); setActive(Math.min(_cmdActive+1,items.length-1)); }
+  else if (e.key==='ArrowUp') { e.preventDefault(); setActive(Math.max(_cmdActive-1,0)); }
+  else if (e.key==='Enter') { if(_cmdActive>=0) runCmd(_cmdActive); else if(_cmdFiltered.length) runCmd(0); }
+  else if (e.key==='Escape') closeCmd();
+}
+document.addEventListener('keydown', e=>{
+  if ((e.ctrlKey||e.metaKey)&&e.key==='k') { e.preventDefault(); openCmd(); }
+});
+
+/* ═══════════════════════════════════════════
+   CURSOR TRAIL (desktop only)
+═══════════════════════════════════════════ */
+if (window.matchMedia('(pointer:fine)').matches) {
+  let _tt;
+  document.addEventListener('mousemove', e=>{
+    clearTimeout(_tt);
+    _tt = setTimeout(()=>{
+      const t = document.createElement('div');
+      t.className = 'c-trail';
+      t.style.cssText = `left:${e.clientX}px;top:${e.clientY}px`;
+      t.setAttribute('aria-hidden','true');
+      document.body.appendChild(t);
+      setTimeout(()=>t.remove(), 520);
+    }, 25);
+  });
+}
+
+/* ═══════════════════════════════════════════
+   NAVIGATE WITH PROGRESS
+═══════════════════════════════════════════ */
+document.querySelectorAll('a.course-card, a.m-lnk').forEach(a=>{
+  a.addEventListener('click', e=>{
+    if (a.href && !a.href.startsWith('javascript')) {
+      NP.start();
+      playSound('ok');
+    }
+  });
+});
+
+/* ═══════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════ */
+setTimeout(()=>toast('✦ Welcome to AIU CS Hub — Press Ctrl+K to navigate','in',4000), 800);
+</script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+# ───────────────────────────────────────────────────────────
+# AIU Vanguard — .gitignore
+# SECURITY FIRST: never commit secrets or build artifacts.
+# ───────────────────────────────────────────────────────────
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+.yarn/*
+
+# next.js build output
+/.next/
+/out/
+/build
+*.tsbuildinfo
+next-env.d.ts
+
+# ── SECRETS — environment files (NEVER COMMIT) ──
+.env
+.env.local
+.env*.local
+.env.development.local
+.env.test.local
+.env.production.local
+# NOTE: .env.example is intentionally NOT ignored (safe template, keep it tracked)
+
+# testing / e2e artifacts
+/coverage
+/playwright-report
+/test-results
+/.nyc_output
+
+# local scratch / db files
+database.db
+database.db.txt
+*.sqlite
+*.sqlite3
+
+# supabase local
+/supabase/.branches
+/supabase/.temp
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# os / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.pem
