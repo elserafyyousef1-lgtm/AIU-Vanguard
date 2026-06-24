@@ -209,6 +209,78 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.6; }
 .v-table tbody tr:last-child td { border-bottom: none; }
 
 /* ═══════════════════════════════════════════════════════════
+   APP SHELL — z-index scale (mirrors src/lib/z.ts) + layout
+═══════════════════════════════════════════════════════════ */
+:root {
+  --z-sidebar: 200; --z-topnav: 300; --z-drawer-overlay: 800; --z-drawer: 810;
+  --z-dropdown: 850; --z-modal: 1000; --z-toast: 1100;
+}
+
+.app-shell { min-height: 100dvh; background: var(--bg); }
+.app-sidebar { position: fixed; inset: 0 auto 0 0; width: 248px; z-index: var(--z-sidebar);
+  background: var(--s1); border-right: 1px solid var(--br); display: flex; flex-direction: column; }
+.app-main { margin-left: 248px; min-height: 100dvh; }
+.app-topbar { display: none; }
+
+.side-link { display: flex; align-items: center; gap: 12px; padding: 10px 13px; border-radius: 10px;
+  color: var(--t2); font-size: 13.5px; font-weight: 500; text-decoration: none;
+  transition: background .15s, color .15s; white-space: nowrap; font-family: var(--font); }
+.side-link:hover { background: var(--s3); color: var(--t); }
+.side-link.on { background: var(--crimson-dim); color: var(--crimson-bright); box-shadow: inset 2px 0 0 var(--crimson); }
+.side-link .ic { flex-shrink: 0; display: flex; }
+.side-section { font-family: var(--font-mono); font-size: 9px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--t3); padding: 0 13px; margin: 16px 0 6px; }
+/* display lives in CSS (not inline) so the rail media query can hide these */
+.side-brand-text { display: flex; flex-direction: column; line-height: 1.08; }
+.side-user { display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--br); padding: 12px 5px 0; margin-top: 10px; }
+.side-user-text { flex: 1; min-width: 0; }
+.side-logout { background: none; border: none; color: var(--t3); cursor: pointer; display: flex; padding: 6px; flex-shrink: 0; }
+
+/* Tablet (768–1023) → collapsed icon rail */
+@media (max-width: 1023px) {
+  .app-sidebar { width: 74px; }
+  .app-main { margin-left: 74px; }
+  .app-sidebar .nav-label, .app-sidebar .side-section,
+  .app-sidebar .side-brand-text, .app-sidebar .side-user-text, .app-sidebar .side-logout { display: none; }
+  .app-sidebar .side-link { justify-content: center; padding: 11px 0; }
+  .app-sidebar .side-link.on { box-shadow: none; }
+  .app-sidebar .side-user { justify-content: center; }
+}
+
+/* Mobile (<768) → hide sidebar, show top bar + drawer */
+@media (max-width: 767px) {
+  .app-sidebar { display: none; }
+  .app-main { margin-left: 0; }
+  .app-topbar { display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: var(--z-topnav);
+    height: 58px; padding: 0 14px; background: var(--nav-bg); backdrop-filter: blur(20px) saturate(1.3); border-bottom: 1px solid var(--br); }
+}
+
+/* Mobile drawer */
+.app-drawer-overlay { position: fixed; inset: 0; z-index: var(--z-drawer-overlay);
+  background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); animation: fadeIn .2s ease; }
+.app-drawer { position: fixed; inset: 0 auto 0 0; width: min(82vw, 300px); z-index: var(--z-drawer);
+  background: var(--s1); border-right: 1px solid var(--br); display: flex; flex-direction: column;
+  animation: drawerIn .26s var(--ease-premium); outline: none; }
+@keyframes drawerIn { from { transform: translateX(-100%); } to { transform: none; } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* Landing top nav */
+.topnav { position: sticky; top: 0; z-index: var(--z-topnav); height: 68px; display: flex; align-items: center;
+  justify-content: space-between; gap: 14px; padding: 0 clamp(16px, 4vw, 40px);
+  background: var(--nav-bg); backdrop-filter: blur(22px) saturate(1.3); border-bottom: 1px solid var(--hair); }
+.topnav-links { display: flex; gap: 2px; }
+.topnav-link { font-size: 13.5px; font-weight: 500; color: var(--ash); padding: 9px 14px; border-radius: 9px;
+  position: relative; transition: color .2s; text-decoration: none; white-space: nowrap; font-family: var(--font); }
+.topnav-link:hover { color: var(--bone); }
+.topnav-link.on { color: var(--bone); }
+.topnav-link.on::after { content: ''; position: absolute; left: 14px; right: 14px; bottom: 3px; height: 2px;
+  background: var(--crimson); border-radius: 2px; box-shadow: 0 0 8px var(--crimson-glow); }
+.topnav-status { display: inline-flex; align-items: center; }
+@media (max-width: 767px) { .topnav-links, .topnav-status { display: none; } }
+/* responsive visibility utility */
+@media (max-width: 767px) { .hide-mobile { display: none !important; } }
+
+/* ═══════════════════════════════════════════════════════════
    BASE RESET
 ═══════════════════════════════════════════════════════════ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
