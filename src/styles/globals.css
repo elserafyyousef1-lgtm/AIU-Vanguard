@@ -279,6 +279,8 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.6; }
 @media (max-width: 767px) { .topnav-links, .topnav-status { display: none; } }
 /* responsive visibility utility */
 @media (max-width: 767px) { .hide-mobile { display: none !important; } }
+.show-mobile { display: none; }
+@media (max-width: 767px) { .show-mobile { display: inline-flex !important; } }
 
 /* ═══════════════════════════════════════════════════════════
    BASE RESET

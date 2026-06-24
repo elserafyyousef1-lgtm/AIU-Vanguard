@@ -40,7 +40,9 @@ export function TopNav({ links = DEFAULT_LINKS, active, right }: { links?: NavLi
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-green)', boxShadow: '0 0 9px var(--accent-green)' }} /> LIVE
             </span>
             <Button href="/login" variant="ghost" size="sm" className="hide-mobile">Sign in</Button>
-            <Button href="/login" size="sm">Get started</Button>
+            <Button href="/login" size="sm" className="hide-mobile">Get started</Button>
+            {/* mobile: single clear login path (→ /login also hosts the Register tab) */}
+            <Button href="/login" size="sm" className="show-mobile">Sign in</Button>
           </>
         )}
       </div>
