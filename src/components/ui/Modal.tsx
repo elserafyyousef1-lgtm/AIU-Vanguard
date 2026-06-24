@@ -1,12 +1,16 @@
 'use client'
-// src/components/ui/Modal.tsx — Vanguard modal: dimmed overlay + surface sheet,
-// ESC-to-close, click-outside-close, body scroll lock, optional header/footer.
-import { useEffect } from 'react'
+// src/components/ui/Modal.tsx — Vanguard modal: dimmed overlay + surface sheet.
+// A11y: role=dialog/aria-modal, focus moves in on open + is trapped (Tab cycles inside),
+// ESC closes, click-outside closes, body scroll-lock, focus restored to the opener on close.
+import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
+import { Z } from '@/lib/z'
 import type { ReactNode, CSSProperties } from 'react'
 
 type Size = 'sm' | 'md' | 'lg'
 const MAXW: Record<Size, number> = { sm: 440, md: 560, lg: 780 }
+
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
 interface Props {
   open?: boolean
@@ -19,21 +23,51 @@ interface Props {
 }
 
 export function Modal({ open = true, title, subtitle, onClose, children, footer, size = 'md' }: Props) {
+  const sheetRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', onKey)
-    const prev = document.body.style.overflow
+    const sheet = sheetRef.current
+    const prevFocused = document.activeElement as HTMLElement | null
+    const focusable = () =>
+      sheet ? Array.from(sheet.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(el => el.offsetParent !== null) : []
+
+    // Move focus into the dialog.
+    const initial = focusable()
+    ;(initial[0] || sheet)?.focus()
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); onClose(); return }
+      if (e.key !== 'Tab') return
+      const items = focusable()
+      if (items.length === 0) { e.preventDefault(); sheet?.focus(); return }
+      const first = items[0], last = items[items.length - 1]
+      const active = document.activeElement
+      if (e.shiftKey && (active === first || active === sheet)) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus() }
+    }
+    document.addEventListener('keydown', onKey, true)
+
+    const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev }
+
+    return () => {
+      document.removeEventListener('keydown', onKey, true)
+      document.body.style.overflow = prevOverflow
+      prevFocused?.focus?.()
+    }
   }, [open, onClose])
 
   if (!open) return null
   const hasHeader = !!(title || subtitle)
   return (
-    <div role="dialog" aria-modal="true" aria-label={title || 'Dialog'}
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }} style={overlay}>
-      <div style={{ ...sheet, maxWidth: MAXW[size] }} onMouseDown={(e) => e.stopPropagation()}>
+    <div role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }} style={overlay}>
+      <div
+        ref={sheetRef}
+        role="dialog" aria-modal="true" aria-label={title || 'Dialog'} tabIndex={-1}
+        style={{ ...sheet, maxWidth: MAXW[size] }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         {hasHeader && (
           <div style={header}>
             <div style={{ minWidth: 0 }}>
@@ -50,8 +84,8 @@ export function Modal({ open = true, title, subtitle, onClose, children, footer,
   )
 }
 
-const overlay: CSSProperties = { position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.62)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '7vh 16px 24px', overflowY: 'auto' }
-const sheet: CSSProperties = { width: '100%', background: 'var(--s2)', border: '1px solid var(--br2)', borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-lg)', maxHeight: '86vh', display: 'flex', flexDirection: 'column', animation: 'menuIn .18s var(--ease-premium)' }
+const overlay: CSSProperties = { position: 'fixed', inset: 0, zIndex: Z.modal, background: 'rgba(0,0,0,0.62)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '7vh 16px 24px', overflowY: 'auto' }
+const sheet: CSSProperties = { width: '100%', background: 'var(--s2)', border: '1px solid var(--br2)', borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-lg)', maxHeight: '86vh', display: 'flex', flexDirection: 'column', animation: 'menuIn .18s var(--ease-premium)', outline: 'none' }
 const header: CSSProperties = { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '20px 22px 16px', borderBottom: '1px solid var(--br)' }
 const closeBtn: CSSProperties = { width: 34, height: 34, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--s3)', border: '1px solid var(--br)', color: 'var(--t2)', cursor: 'pointer', flexShrink: 0 }
 const footerRow: CSSProperties = { display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '16px 22px', borderTop: '1px solid var(--br)' }

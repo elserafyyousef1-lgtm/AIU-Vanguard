@@ -63,7 +63,7 @@ export default function ComponentsShowcase() {
         </div>
         <div style={{ paddingTop: 26 }}>
           <Dropdown
-            trigger={<Button variant="subtle" icon={<MoreHorizontal size={15} />}>Actions</Button>}
+            trigger={<><MoreHorizontal size={15} /> Actions</>}
             items={[
               { label: 'Edit', icon: <Pencil size={14} />, onClick: () => {} },
               { label: 'Delete', icon: <Trash2 size={14} />, onClick: () => {}, danger: true },
