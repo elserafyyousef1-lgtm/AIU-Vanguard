@@ -2,9 +2,10 @@
 // src/components/dashboard/StudentHub.tsx — real student dashboard:
 // enrolled courses, level, and a PRIVATE rank among all students.
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { BookOpen, Trophy, BarChart3, Clock, Lock, CheckCircle2, EyeOff, ArrowRight } from 'lucide-react'
+import { Card } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
 
 interface Enr { id: string; course: string; enrolled_at: string; completed: boolean }
 interface RankRow { rank: number; total: number; score: number }
@@ -49,14 +50,14 @@ export function StudentHub({ userId }: { userId: string }) {
   const completed = enrs.filter(e => e.completed).length
 
   const card = (icon: any, label: string, value: React.ReactNode, color: string, sub?: React.ReactNode) => (
-    <div style={{ background: 'var(--s2)', border: '1px solid var(--br)', borderRadius: 14, padding: 18 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+    <Card padding={18}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <div style={{ width: 30, height: 30, borderRadius: 9, background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', color }}>{icon}</div>
         <span style={{ fontSize: 12, color: 'var(--t3)', fontWeight: 600 }}>{label}</span>
       </div>
-      <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--t)' }}>{value}</div>
+      <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, color: 'var(--t)', letterSpacing: '-0.02em' }}>{value}</div>
       {sub && <div style={{ marginTop: 4 }}>{sub}</div>}
-    </div>
+    </Card>
   )
 
   return (
@@ -80,10 +81,7 @@ export function StudentHub({ userId }: { userId: string }) {
       {enrs.length === 0 ? (
         <div style={{ background: 'var(--s2)', border: '1px dashed var(--br)', borderRadius: 14, padding: 26, textAlign: 'center' }}>
           <p style={{ color: 'var(--t3)', fontSize: 13.5, marginBottom: 12 }}>You haven't enrolled in any course yet.</p>
-          <Link href="/" style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 10,
-            background: 'var(--accent)', color: 'white', fontSize: 13, fontWeight: 700, textDecoration: 'none',
-          }}>Browse semesters <ArrowRight size={13} /></Link>
+          <Button href="/" size="sm" iconRight={<ArrowRight size={14} />}>Browse semesters</Button>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -104,10 +102,7 @@ export function StudentHub({ userId }: { userId: string }) {
               ) : (
                 <span style={pill('var(--t3)')}><Lock size={10} /> Enrolled</span>
               )}
-              <Link href={`/courses/${e.course.toLowerCase()}`} style={{
-                padding: '7px 15px', borderRadius: 9, background: 'var(--accent)', color: 'white',
-                fontSize: 12.5, fontWeight: 700, textDecoration: 'none',
-              }}>Open</Link>
+              <Button href={`/courses/${e.course.toLowerCase()}`} size="sm">Open</Button>
             </div>
           ))}
         </div>

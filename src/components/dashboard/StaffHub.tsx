@@ -2,10 +2,11 @@
 // src/components/dashboard/StaffHub.tsx — Doctor & Master dashboard:
 // their assigned courses with live student counts, plus the doctor's teach requests.
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { BookOpen, Users, GraduationCap, Hourglass, CheckCircle2, XCircle, ArrowRight } from 'lucide-react'
+import { Card } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
 
 interface CourseRow { code: string; title: string; students: number }
 interface Req { id: string; status: string; course: { code: string; title: string } | null }
@@ -50,13 +51,13 @@ export function StaffHub() {
   const pending = reqs.filter(r => r.status === 'pending').length
 
   const card = (icon: any, label: string, value: React.ReactNode, color: string) => (
-    <div style={{ background: 'var(--s2)', border: '1px solid var(--br)', borderRadius: 14, padding: 18 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+    <Card padding={18}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <div style={{ width: 30, height: 30, borderRadius: 9, background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', color }}>{icon}</div>
         <span style={{ fontSize: 12, color: 'var(--t3)', fontWeight: 600 }}>{label}</span>
       </div>
-      <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--t)' }}>{value}</div>
-    </div>
+      <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, color: 'var(--t)', letterSpacing: '-0.02em' }}>{value}</div>
+    </Card>
   )
 
   const statusPill = (st: string) =>
@@ -81,10 +82,7 @@ export function StaffHub() {
               : 'No courses assigned to you yet.'}
           </p>
           {role === 'doctor' && (
-            <Link href="/" style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 10,
-              background: 'var(--accent)', color: 'white', fontSize: 13, fontWeight: 700, textDecoration: 'none',
-            }}>Browse semesters <ArrowRight size={13} /></Link>
+            <Button href="/" size="sm" iconRight={<ArrowRight size={14} />}>Browse semesters</Button>
           )}
         </div>
       ) : (
@@ -102,10 +100,7 @@ export function StaffHub() {
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--t2)', fontWeight: 600 }}>
                 <Users size={13} /> {c.students} {c.students === 1 ? 'student' : 'students'}
               </span>
-              <Link href={`/courses/${c.code.toLowerCase()}`} style={{
-                padding: '7px 15px', borderRadius: 9, background: 'var(--accent)', color: 'white',
-                fontSize: 12.5, fontWeight: 700, textDecoration: 'none',
-              }}>Open</Link>
+              <Button href={`/courses/${c.code.toLowerCase()}`} size="sm">Open</Button>
             </div>
           ))}
         </div>

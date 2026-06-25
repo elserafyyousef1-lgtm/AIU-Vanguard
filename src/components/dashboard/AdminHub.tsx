@@ -9,6 +9,8 @@ import { Users, GraduationCap, BookOpen, Hourglass, Plus, Pencil, Trash2, UserCo
 import { TeachRequests } from '@/components/course/TeachRequests'
 import { StudentCenter } from './StudentCenter'
 import { CourseModal, type CourseRow } from './CourseModal'
+import { Card } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
 
 export function AdminHub() {
   const supabase = createClient()
@@ -42,13 +44,13 @@ export function AdminHub() {
   }
 
   const card = (icon: any, label: string, value: number, color: string) => (
-    <div style={{ background: 'var(--s2)', border: '1px solid var(--br)', borderRadius: 14, padding: 18 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+    <Card padding={18}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <div style={{ width: 30, height: 30, borderRadius: 9, background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', color }}>{icon}</div>
         <span style={{ fontSize: 12, color: 'var(--t3)', fontWeight: 600 }}>{label}</span>
       </div>
-      <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--t)' }}>{value}</div>
-    </div>
+      <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, color: 'var(--t)', letterSpacing: '-0.02em' }}>{value}</div>
+    </Card>
   )
 
   return (
@@ -85,10 +87,7 @@ export function AdminHub() {
           <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, fontWeight: 800, color: 'var(--t)' }}>
             <BookOpen size={16} style={{ color: 'var(--accent)' }} /> Course Management
           </h2>
-          <button onClick={() => setModal({ course: null })} style={{
-            display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 10,
-            background: 'var(--accent)', color: 'white', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font)',
-          }}><Plus size={14} /> Create Course</button>
+          <Button onClick={() => setModal({ course: null })} size="sm" icon={<Plus size={14} />}>Create Course</Button>
         </div>
 
         {courses.length === 0 ? (
