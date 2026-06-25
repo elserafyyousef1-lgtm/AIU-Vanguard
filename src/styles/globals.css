@@ -220,7 +220,28 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.6; }
 .app-sidebar { position: fixed; inset: 0 auto 0 0; width: 248px; z-index: var(--z-sidebar);
   background: var(--s1); border-right: 1px solid var(--br); display: flex; flex-direction: column; }
 .app-main { margin-left: 248px; min-height: 100dvh; }
-.app-topbar { display: none; }
+
+/* In-app sticky header: util cluster on every size; hamburger + brand only on mobile */
+.app-header { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  position: sticky; top: 0; z-index: var(--z-topnav); height: 58px; padding: 0 clamp(16px, 3vw, 30px);
+  background: var(--nav-bg); backdrop-filter: blur(20px) saturate(1.3); border-bottom: 1px solid var(--br); }
+.app-header-left { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.app-header-ham, .app-header-brand { display: none; }
+.app-utils { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.app-util { width: 36px; height: 36px; border-radius: 10px; background: var(--s2); border: 1px solid var(--br);
+  color: var(--t2); display: flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: color .15s, border-color .15s; flex-shrink: 0; }
+.app-util:hover { color: var(--t); border-color: var(--br2); }
+.app-util-search { display: flex; align-items: center; gap: 6px; padding: 7px 11px; border-radius: 9px;
+  background: var(--s3); border: 1px solid var(--br); color: var(--t2); font-size: 12px; font-family: var(--font);
+  cursor: pointer; transition: color .15s, border-color .15s; }
+.app-util-search:hover { color: var(--t); border-color: var(--br2); }
+.app-util-search kbd { font-family: var(--font-mono); font-size: 10px; background: var(--s4);
+  border: 1px solid var(--br2); padding: 1px 5px; border-radius: 4px; color: var(--t3); }
+.app-util-online { display: flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 8px;
+  background: var(--s3); border: 1px solid var(--br); font-size: 11px; font-family: var(--font-mono); color: var(--t3); }
+.app-util-online .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-green);
+  flex-shrink: 0; box-shadow: 0 0 6px var(--accent-green); }
 
 .side-link { display: flex; align-items: center; gap: 12px; padding: 10px 13px; border-radius: 10px;
   color: var(--t2); font-size: 13.5px; font-weight: 500; text-decoration: none;
@@ -251,8 +272,8 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.6; }
 @media (max-width: 767px) {
   .app-sidebar { display: none; }
   .app-main { margin-left: 0; }
-  .app-topbar { display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: var(--z-topnav);
-    height: 58px; padding: 0 14px; background: var(--nav-bg); backdrop-filter: blur(20px) saturate(1.3); border-bottom: 1px solid var(--br); }
+  .app-header { padding: 0 14px; }
+  .app-header-ham, .app-header-brand { display: flex; align-items: center; }
 }
 
 /* Mobile drawer */

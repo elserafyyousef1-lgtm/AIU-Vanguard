@@ -7,7 +7,6 @@ import type { NavItem } from '@/components/layout/Sidebar'
 import { StudentHub } from '@/components/dashboard/StudentHub'
 import { StaffHub } from '@/components/dashboard/StaffHub'
 import { AdminHub } from '@/components/dashboard/AdminHub'
-import { CommandPalette } from '@/components/ui/CommandPalette'
 import { Spinner } from '@/components/ui/Spinner'
 import { createClient } from '@/lib/supabase/client'
 import { LayoutDashboard, BookOpen, Users, MessageSquare, Shield, UserCircle, Settings, Camera, Loader2 } from 'lucide-react'
@@ -168,8 +167,6 @@ export default function DashboardPage() {
         {(role === 'doctor' || role === 'master') && <StaffHub />}
         {(role === 'owner' || role === 'admin') && <AdminHub />}
       </main>
-
-      <CommandPalette />
     </AppShell>
   )
 }
