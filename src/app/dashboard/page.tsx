@@ -92,7 +92,7 @@ export default function DashboardPage() {
       if (updErr) throw updErr
       setProfile((p: any) => ({ ...p, avatar_url: url }))
       toast.success('Profile photo updated.')
-    } catch { toast.error('Could not upload photo. Please try again.') }
+    } catch (e) { console.error('[dashboard] avatar upload failed', e); toast.error('Could not upload photo. Please try again.') }
     finally { setUploadingAvatar(false) }
   }
 
@@ -104,7 +104,7 @@ export default function DashboardPage() {
       if (error) throw error
       setProfile((p: any) => ({ ...p, avatar_url: null }))
       toast.success('Photo removed.')
-    } catch { toast.error('Could not remove photo. Please try again.') }
+    } catch (e) { console.error('[dashboard] avatar remove failed', e); toast.error('Could not remove photo. Please try again.') }
     finally { setUploadingAvatar(false) }
   }
 
