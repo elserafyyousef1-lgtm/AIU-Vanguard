@@ -22,8 +22,13 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // Refresh session — MUST call getUser() to keep session alive
+  // Refresh session — MUST call getUser() to keep session alive.
+  // [diag] measure getUser() latency server-side → Vercel runtime logs. MEASUREMENT ONLY:
+  // identical call + identical result; the wrapper changes no behavior. Remove after diagnosis.
+  const __t0 = performance.now()
   const { data: { user } } = await supabase.auth.getUser()
+  const __ms = Math.round(performance.now() - __t0)
+  console.log(`[mw-timing] getUser=${__ms}ms path=${request.nextUrl.pathname} prefetch=${request.headers.get('next-router-prefetch') ?? '0'} auth=${user ? '1' : '0'}`)
 
   const path = request.nextUrl.pathname
 
