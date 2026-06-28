@@ -1,15 +1,15 @@
 'use client'
-// src/app/dashboard/page.tsx — role-aware dashboard inside the Vanguard AppShell.
-// Visual only: all data loading, avatar upload, role gating and hub logic are unchanged.
+// src/app/dashboard/page.tsx — role-aware dashboard under the unified SiteNav.
+// Structural: AppShell/Sidebar -> SiteNav. All data loading, avatar upload, role gating
+// and hub logic are unchanged.
 import { useEffect, useState } from 'react'
-import { AppShell } from '@/components/layout/AppShell'
-import type { NavItem } from '@/components/layout/Sidebar'
+import { SiteNavView } from '@/components/layout/SiteNavView'
 import { StudentHub } from '@/components/dashboard/StudentHub'
 import { StaffHub } from '@/components/dashboard/StaffHub'
 import { AdminHub } from '@/components/dashboard/AdminHub'
 import { Spinner } from '@/components/ui/Spinner'
 import { createClient } from '@/lib/supabase/client'
-import { LayoutDashboard, BookOpen, Users, MessageSquare, Shield, UserCircle, Settings, Camera, Loader2 } from 'lucide-react'
+import { Camera, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
 
@@ -25,20 +25,6 @@ const ROLE_BADGE: Record<string, { label: string; color: string }> = {
   owner: { label: 'Owner', color: '#f59e0b' }, admin: { label: 'Admin', color: '#6366f1' },
   doctor: { label: 'Doctor', color: '#10b981' }, master: { label: 'Master', color: '#8b5cf6' },
   guider: { label: 'Guider', color: '#06b6d4' }, student: { label: 'Student', color: 'var(--t3)' },
-}
-
-// Role-based sidebar nav. "Courses" → /semesters/4 keeps the current hardcoded-semester pattern.
-function navFor(role: string, userId: string): NavItem[] {
-  const isAdmin = role === 'owner' || role === 'admin'
-  return [
-    { href: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} />, section: 'Menu' },
-    { href: '/semesters/4', label: 'Courses', icon: <BookOpen size={18} />, section: 'Menu' },
-    { href: '/community', label: 'Community', icon: <Users size={18} />, section: 'Menu' },
-    { href: '/messages', label: 'Messages', icon: <MessageSquare size={18} />, section: 'Menu' },
-    ...(isAdmin ? [{ href: '/admin', label: 'Admin', icon: <Shield size={18} />, section: 'Manage' }] : []),
-    { href: `/profile/${userId}`, label: 'Profile', icon: <UserCircle size={18} />, section: 'Account' },
-    { href: '/settings', label: 'Settings', icon: <Settings size={18} />, section: 'Account' },
-  ]
 }
 
 export default function DashboardPage() {
@@ -110,23 +96,24 @@ export default function DashboardPage() {
 
   if (loading || !user) {
     return (
-      <div className="app-shell"><div className="app-main"><Spinner label="Loading dashboard…" padding={120} /></div></div>
+      <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Spinner label="Loading dashboard…" padding={80} /></div>
     )
   }
 
   const role = profile?.role || 'student'
   const badge = ROLE_BADGE[role]
-  const items = navFor(role, user.id)
+  const isAdmin = role === 'owner' || role === 'admin'
   const fullName = profile?.full_name || user?.user_metadata?.full_name
 
   return (
-    <AppShell
-      items={items}
-      active="/dashboard"
-      user={{ name: twoNames(fullName), role: badge.label, avatarUrl: profile?.avatar_url }}
-      onLogout={handleLogout}
-    >
-      <main style={{ padding: 'clamp(22px,4vw,40px)', maxWidth: 1120 }}>
+    <>
+      <SiteNavView
+        active="/dashboard"
+        user={{ id: user.id, name: twoNames(fullName), role: badge.label, avatarUrl: profile?.avatar_url }}
+        isAdmin={isAdmin}
+        onLogout={handleLogout}
+      />
+      <main style={{ maxWidth: 1120, margin: '0 auto', padding: 'clamp(22px,4vw,40px)' }}>
         {/* Header */}
         <div className="anim-1" style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 34, flexWrap: 'wrap' }}>
           <label style={{ position: 'relative', cursor: 'pointer', flexShrink: 0 }} title="Change photo">
@@ -167,6 +154,6 @@ export default function DashboardPage() {
         {(role === 'doctor' || role === 'master') && <StaffHub />}
         {(role === 'owner' || role === 'admin') && <AdminHub />}
       </main>
-    </AppShell>
+    </>
   )
 }
