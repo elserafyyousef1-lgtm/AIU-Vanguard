@@ -71,7 +71,7 @@ export function SiteNavView({ active, user, isAdmin = false, onLogout }: {
       <nav className="sitenav" aria-label="Primary">
         {/* Brand */}
         <Link href={authed ? '/dashboard' : '/'} className="sitenav-brand">
-          <span style={{ width: 38, height: 38, borderRadius: 11, background: 'var(--void, var(--accent))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 13, boxShadow: '0 0 0 1px var(--crimson-line), var(--shadow-crimson)' }}>AIU</span>
+          <span style={{ width: 38, height: 38, borderRadius: 'var(--r-sm)', background: 'var(--void, var(--accent))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 13, boxShadow: '0 0 0 1px var(--crimson-line), var(--shadow-crimson)' }}>AIU</span>
           <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.05 }}>
             <strong style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16, letterSpacing: '-0.01em', color: 'var(--t)' }}>AIU <span style={{ color: 'var(--accent-2)' }}>Vanguard</span></strong>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8.5, letterSpacing: '0.28em', color: 'var(--t3)', textTransform: 'uppercase', marginTop: 2 }}>CS Department</span>
@@ -141,14 +141,16 @@ export function SiteNavView({ active, user, isAdmin = false, onLogout }: {
             ))}
           </div>
 
-          <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {authed && (
+          {/* NOTE: no OnlineCounter here — it is already mounted in the top bar. OnlineCounter
+              shares one presence topic and is not safe to mount twice, so the drawer reuses
+              the single instance rather than rendering a second one. */}
+          {authed && (
+            <div style={{ marginTop: 14 }}>
               <button onClick={() => { setCmdOpen(true); setDrawer(false) }} className="side-link" style={{ background: 'var(--s3)' }}>
                 <Command size={16} /> Search
               </button>
-            )}
-            <div className="sitenav-online" style={{ alignSelf: 'flex-start' }}><span className="dot" /><OnlineCounter /></div>
-          </div>
+            </div>
+          )}
 
           <div style={{ flex: 1 }} />
 
