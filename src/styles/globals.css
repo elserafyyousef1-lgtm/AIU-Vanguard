@@ -7,11 +7,11 @@
    DESIGN TOKENS — matches original AIU CS Hub palette
 ═══════════════════════════════════════════════════════════ */
 :root {
-  /* Spacing */
-  --r-sm: 8px;
-  --r-md: 12px;
-  --r-lg: 16px;
-  --r-xl: 20px;
+  /* Spacing — radii match the aiu-vanguard reference exactly */
+  --r-sm: 11px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
   --r-pill: 999px;
 
   /* Layout */
@@ -61,6 +61,7 @@
   --t: #f4f3f6;           /* bone */
   --t2: #9a9aa8;          /* ash */
   --t3: #5c5c6b;          /* smoke */
+  --faint: #33333e;       /* disabled (from reference) */
   --accent: #e0264b;      /* crimson */
   --accent-2: #ff3355;    /* crimson-bright */
   --accent-green: #3dd68c;
@@ -82,6 +83,7 @@
   --t: #0d0d11;
   --t2: #54545f;
   --t3: #8a8a96;
+  --faint: #c4c4cc;       /* disabled (light) */
   --accent: #d11f43;
   --accent-2: #e0264b;
   --accent-green: #059669;
@@ -312,28 +314,28 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.6; }
 .sitenav-brand { display: flex; align-items: center; gap: 11px; text-decoration: none; flex-shrink: 0; }
 .sitenav-links { display: flex; gap: 2px; }
 .sitenav-utils { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-shrink: 0; }
-.sitenav-icon { width: 36px; height: 36px; border-radius: 10px; background: var(--s2); border: 1px solid var(--br);
+.sitenav-icon { width: 36px; height: 36px; border-radius: var(--r-sm); background: var(--s2); border: 1px solid var(--br);
   color: var(--t2); display: flex; align-items: center; justify-content: center; cursor: pointer;
   transition: color .15s, border-color .15s; flex-shrink: 0; }
 .sitenav-icon:hover { color: var(--t); border-color: var(--br2); }
-.sitenav-search { display: flex; align-items: center; gap: 6px; padding: 7px 11px; border-radius: 9px;
+.sitenav-search { display: flex; align-items: center; gap: 6px; padding: 7px 11px; border-radius: var(--r-sm);
   background: var(--s3); border: 1px solid var(--br); color: var(--t2); font-size: 12px; font-family: var(--font);
   cursor: pointer; transition: color .15s, border-color .15s; }
 .sitenav-search:hover { color: var(--t); border-color: var(--br2); }
 .sitenav-search kbd { font-family: var(--font-mono); font-size: 10px; background: var(--s4);
   border: 1px solid var(--br2); padding: 1px 5px; border-radius: 4px; color: var(--t3); }
-.sitenav-online { display: flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 8px;
+.sitenav-online { display: flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: var(--r-xs);
   background: var(--s3); border: 1px solid var(--br); font-size: 11px; font-family: var(--font-mono); color: var(--t3); }
 .sitenav-online .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-green);
   flex-shrink: 0; box-shadow: 0 0 6px var(--accent-green); }
-.sitenav-avatar-btn { display: flex; align-items: center; gap: 7px; padding: 4px 9px 4px 4px; border-radius: 999px;
+.sitenav-avatar-btn { display: flex; align-items: center; gap: 7px; padding: 4px 9px 4px 4px; border-radius: var(--r-pill);
   background: var(--s2); border: 1px solid var(--br); cursor: pointer; transition: border-color .15s; }
 .sitenav-avatar-btn:hover { border-color: var(--br2); }
 .sitenav-avatar { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
   background: linear-gradient(135deg, var(--accent), var(--accent-2)); display: flex; align-items: center;
   justify-content: center; color: #fff; font-weight: 700; font-size: 12px; }
 .sitenav-avatar-name { font-size: 13px; font-weight: 600; color: var(--t); }
-.sitenav-ham { display: none; width: 38px; height: 38px; border-radius: 10px; background: var(--s2);
+.sitenav-ham { display: none; width: 38px; height: 38px; border-radius: var(--r-sm); background: var(--s2);
   border: 1px solid var(--br); color: var(--t2); align-items: center; justify-content: center;
   cursor: pointer; flex-shrink: 0; }
 /* Tablet + mobile (<1024): collapse inline links + secondary utils into the hamburger drawer */
