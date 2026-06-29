@@ -6,7 +6,8 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
-import { Navbar } from '@/components/layout/Navbar'
+import { SiteNavView } from '@/components/layout/SiteNavView'
+import { COURSES_HREF } from '@/lib/navigation'
 import toast from 'react-hot-toast'
 import { BookOpen, Clock, Lock, CheckCircle2, MessageSquare, Loader2, ArrowLeft, GraduationCap, Hourglass } from 'lucide-react'
 
@@ -19,7 +20,7 @@ export default function SemesterPage() {
   const router = useRouter()
   const supabase = createClient()
   const semId = parseInt((params?.id as string) || '0')
-  const { loading: authLoading, userId, role, isStudent, myCourses } = useAuth()
+  const { loading: authLoading, userId, role, isStudent, myCourses, profile, isAdmin } = useAuth()
 
   const [courses, setCourses] = useState<Course[]>([])
   const [enrollments, setEnrollments] = useState<Enrollment[]>([])
@@ -170,13 +171,29 @@ export default function SemesterPage() {
     )
   }
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    toast.success('Logged out')
+    router.push('/'); router.refresh()
+  }
+  // Feed the unified nav from this page's existing useAuth() (no second auth fetch).
+  // null while auth is still loading → SiteNav falls back to the tab's last-known identity.
+  const navUser = (!authLoading && userId)
+    ? {
+        id: userId,
+        name: (profile as any)?.full_name || 'Student',
+        role: role ? role[0].toUpperCase() + role.slice(1) : undefined,
+        avatarUrl: (profile as any)?.avatar_url ?? null,
+      }
+    : null
+
   if (!semId || semId < 1 || semId > 8) {
     return <div style={center}>This semester doesn't exist.</div>
   }
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}>
-      <Navbar />
+      <SiteNavView active={COURSES_HREF} user={navUser} isAdmin={isAdmin} onLogout={handleLogout} />
       <main style={{ maxWidth: 760, margin: '0 auto', padding: '28px 16px 60px' }}>
         <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--t3)', fontSize: 13, textDecoration: 'none', marginBottom: 18 }}>
           <ArrowLeft size={14} /> All semesters
