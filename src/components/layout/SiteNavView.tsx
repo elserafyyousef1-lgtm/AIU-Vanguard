@@ -141,16 +141,15 @@ export function SiteNavView({ active, user, isAdmin = false, onLogout }: {
             ))}
           </div>
 
-          {/* NOTE: no OnlineCounter here — it is already mounted in the top bar. OnlineCounter
-              shares one presence topic and is not safe to mount twice, so the drawer reuses
-              the single instance rather than rendering a second one. */}
-          {authed && (
-            <div style={{ marginTop: 14 }}>
+          {/* OnlineCounter is now singleton-safe, so a second instance here is fine. */}
+          <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {authed && (
               <button onClick={() => { setCmdOpen(true); setDrawer(false) }} className="side-link" style={{ background: 'var(--s3)' }}>
                 <Command size={16} /> Search
               </button>
-            </div>
-          )}
+            )}
+            <div className="sitenav-online" style={{ alignSelf: 'flex-start' }}><span className="dot" /><OnlineCounter /></div>
+          </div>
 
           <div style={{ flex: 1 }} />
 
