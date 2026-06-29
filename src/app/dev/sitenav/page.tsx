@@ -18,7 +18,7 @@ export default function SiteNavPreview() {
 
   return (
     <>
-      <SiteNavView active="/dashboard" user={user} isAdmin={isAdmin} onLogout={() => alert('logout')} />
+      <SiteNavView active="/dashboard" user={user} isAdmin={isAdmin} loading={false} onLogout={() => alert('logout')} />
 
       <main style={{ maxWidth: 1100, margin: '0 auto', padding: 'clamp(20px,4vw,40px)' }}>
         <div className="sec-kicker">Dev · SiteNav preview</div>

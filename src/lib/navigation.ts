@@ -49,8 +49,16 @@ export function accountLinks(userId?: string): NavLink[] {
 // ~window the page has no user yet, which would make the role-aware nav flicker to the
 // GUEST links ("most links disappear, only Home/Courses"). This remembers the last known
 // signed-in identity for the tab so the nav stays stable across client navigations.
-// Cleared on logout. Does NOT touch session/cookies/middleware — purely what links to show.
-// (Becomes unnecessary once SiteNav is hoisted into the root layout after all pages migrate.)
+// Cleared on logout AND when a page resolves with no user (loading===false && !user).
+// Does NOT touch session/cookies/middleware — purely what links to show.
+//
+// ⚠️ TECH DEBT — ARCHITECTURAL ASSUMPTION:
+//   This is only safe because EVERY page that currently renders SiteNav is middleware-
+//   protected, so a session-less user can never reach a page that would display a stale
+//   snapshot. If ANY PUBLIC page (e.g. the landing page) adopts SiteNav BEFORE the
+//   root-layout migration, this assumption is INVALID and the snapshot must be revisited.
+//   Removal trigger: once SiteNav is a single root-layout instance it no longer re-mounts
+//   per navigation → no guest-flicker → DELETE the snapshot (and the per-page wiring).
 // ───────────────────────────────────────────────────────────
 export interface NavUser { id?: string; name: string; role?: string; avatarUrl?: string | null }
 

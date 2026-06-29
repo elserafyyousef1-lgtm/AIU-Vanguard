@@ -193,7 +193,7 @@ export default function SemesterPage() {
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}>
-      <SiteNavView active={COURSES_HREF} user={navUser} isAdmin={isAdmin} onLogout={handleLogout} />
+      <SiteNavView active={COURSES_HREF} user={navUser} isAdmin={isAdmin} loading={authLoading} onLogout={handleLogout} />
       <main style={{ maxWidth: 760, margin: '0 auto', padding: '28px 16px 60px' }}>
         <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--t3)', fontSize: 13, textDecoration: 'none', marginBottom: 18 }}>
           <ArrowLeft size={14} /> All semesters

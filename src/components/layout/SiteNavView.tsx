@@ -25,10 +25,11 @@ import {
 
 export interface SiteNavUser { id?: string; name: string; role?: string; avatarUrl?: string | null }
 
-export function SiteNavView({ active, user, isAdmin = false, onLogout }: {
+export function SiteNavView({ active, user, isAdmin = false, loading, onLogout }: {
   active?: string
   user?: SiteNavUser | null
   isAdmin?: boolean
+  loading?: boolean   // pass the page's auth-loading flag so the snapshot can be invalidated
   onLogout?: () => void
 }) {
   const router = useRouter()
@@ -39,11 +40,17 @@ export function SiteNavView({ active, user, isAdmin = false, onLogout }: {
   // Remember the signed-in identity for the tab so the role-aware nav doesn't flicker to the
   // guest links while a freshly-mounted page revalidates its session (display only — see
   // navigation.ts). When a real user is passed, the page is the source of truth; while a page
-  // is still loading (user null), fall back to the last known identity.
-  useEffect(() => { if (user) setNavAuthSnapshot(user, isAdmin) }, [user, isAdmin])
+  // is still loading (user null), fall back to the last known identity. When a page resolves
+  // with NO user (loading === false && !user — expiry / logout-elsewhere), DROP the snapshot
+  // so it can never outlive the session (matters once SiteNav reaches a public page).
+  useEffect(() => {
+    if (user) setNavAuthSnapshot(user, isAdmin)
+    else if (loading === false) clearNavAuthSnapshot()
+  }, [user, isAdmin, loading])
   const snap = getNavAuthSnapshot()
-  const effUser: NavUser | null = user ?? snap?.user ?? null
-  const effAdmin = user ? isAdmin : (snap?.isAdmin ?? false)
+  const resolvedNoUser = !user && loading === false
+  const effUser: NavUser | null = user ?? (resolvedNoUser ? null : snap?.user ?? null)
+  const effAdmin = user ? isAdmin : (resolvedNoUser ? false : (snap?.isAdmin ?? false))
   const authed = !!effUser
   const links = mainNavLinks(authed, effAdmin)
   const account = accountLinks(effUser?.id)
