@@ -4,9 +4,9 @@
 // links inline + util cluster + avatar menu. Tablet/mobile <1024: brand + bell + theme +
 // hamburger → MobileDrawer with every link + the util cluster + account actions.
 //
-// Pure UI: takes auth state as props (the smart wrapper will feed it from useAuth). The util
-// cluster (Search/CommandPalette, OnlineCounter, NotificationBell, theme) lives HERE so nothing
-// is lost vs the old Navbar / AppShell header.
+// Link definitions come from the single source of truth in '@/lib/navigation'. The util
+// cluster (Search/CommandPalette, OnlineCounter, NotificationBell, theme) lives HERE so
+// nothing is lost vs the old Navbar / AppShell header.
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
@@ -18,24 +18,12 @@ import { CommandPalette } from '@/components/ui/CommandPalette'
 import { Dropdown } from '@/components/ui/Dropdown'
 import { Button } from '@/components/ui/Button'
 import { MobileDrawer } from './MobileDrawer'
+import {
+  mainNavLinks, accountLinks,
+  setNavAuthSnapshot, getNavAuthSnapshot, clearNavAuthSnapshot, type NavUser,
+} from '@/lib/navigation'
 
 export interface SiteNavUser { id?: string; name: string; role?: string; avatarUrl?: string | null }
-
-const GUEST_LINKS = [
-  { href: '/', label: 'Home' },
-  { href: '/semesters/4', label: 'Courses' },
-  { href: '/community', label: 'Community' },
-]
-
-function authedLinks(isAdmin: boolean) {
-  return [
-    { href: '/dashboard', label: 'Dashboard' },
-    { href: '/semesters/4', label: 'Courses' },
-    { href: '/community', label: 'Community' },
-    { href: '/messages', label: 'Messages' },
-    ...(isAdmin ? [{ href: '/admin', label: 'Admin' }] : []),
-  ]
-}
 
 export function SiteNavView({ active, user, isAdmin = false, onLogout }: {
   active?: string
@@ -47,9 +35,20 @@ export function SiteNavView({ active, user, isAdmin = false, onLogout }: {
   const [drawer, setDrawer] = useState(false)
   const { setCmdOpen } = useUIStore()
   const { settings, updateSettings } = useUserStore()
-  const authed = !!user
-  const links = authed ? authedLinks(isAdmin) : GUEST_LINKS
-  const initial = (user?.name || 'U').trim()[0]?.toUpperCase() || 'U'
+
+  // Remember the signed-in identity for the tab so the role-aware nav doesn't flicker to the
+  // guest links while a freshly-mounted page revalidates its session (display only — see
+  // navigation.ts). When a real user is passed, the page is the source of truth; while a page
+  // is still loading (user null), fall back to the last known identity.
+  useEffect(() => { if (user) setNavAuthSnapshot(user, isAdmin) }, [user, isAdmin])
+  const snap = getNavAuthSnapshot()
+  const effUser: NavUser | null = user ?? snap?.user ?? null
+  const effAdmin = user ? isAdmin : (snap?.isAdmin ?? false)
+  const authed = !!effUser
+  const links = mainNavLinks(authed, effAdmin)
+  const account = accountLinks(effUser?.id)
+  const initial = (effUser?.name || 'U').trim()[0]?.toUpperCase() || 'U'
+  const handleLogout = () => { clearNavAuthSnapshot(); onLogout?.() }
 
   // Ctrl/Cmd+K opens the command palette.
   useEffect(() => {
@@ -62,7 +61,7 @@ export function SiteNavView({ active, user, isAdmin = false, onLogout }: {
 
   const Avatar = ({ size = 28 }: { size?: number }) => (
     <span className="sitenav-avatar" style={{ width: size, height: size, fontSize: size * 0.43 }}>
-      {user?.avatarUrl ? <img src={user.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initial}
+      {effUser?.avatarUrl ? <img src={effUser.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initial}
     </span>
   )
 
@@ -105,11 +104,11 @@ export function SiteNavView({ active, user, isAdmin = false, onLogout }: {
               align="right"
               ariaLabel="Account menu"
               triggerClassName="sitenav-avatar-btn"
-              trigger={<><Avatar /><span className="sitenav-avatar-name">{(user!.name || 'Account').split(/\s+/)[0]}</span><ChevronDown size={14} style={{ color: 'var(--t3)' }} /></>}
+              trigger={<><Avatar /><span className="sitenav-avatar-name">{(effUser!.name || 'Account').split(/\s+/)[0]}</span><ChevronDown size={14} style={{ color: 'var(--t3)' }} /></>}
               items={[
-                { label: 'Profile', icon: <UserCircle size={15} />, onClick: () => router.push(`/profile/${user!.id ?? ''}`) },
-                { label: 'Settings', icon: <Settings size={15} />, onClick: () => router.push('/settings') },
-                { label: 'Log out', icon: <LogOut size={15} />, onClick: () => onLogout?.(), danger: true },
+                { label: 'Profile', icon: <UserCircle size={15} />, onClick: () => router.push(account[0].href) },
+                { label: 'Settings', icon: <Settings size={15} />, onClick: () => router.push(account[1].href) },
+                { label: 'Log out', icon: <LogOut size={15} />, onClick: handleLogout, danger: true },
               ]}
             />
           ) : (
@@ -141,7 +140,7 @@ export function SiteNavView({ active, user, isAdmin = false, onLogout }: {
             ))}
           </div>
 
-          {/* OnlineCounter is now singleton-safe, so a second instance here is fine. */}
+          {/* OnlineCounter is singleton-safe, so a second instance here is fine. */}
           <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
             {authed && (
               <button onClick={() => { setCmdOpen(true); setDrawer(false) }} className="side-link" style={{ background: 'var(--s3)' }}>
@@ -158,13 +157,13 @@ export function SiteNavView({ active, user, isAdmin = false, onLogout }: {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 10px 10px' }}>
                 <Avatar size={34} />
                 <span style={{ minWidth: 0 }}>
-                  <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--t)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user!.name}</span>
-                  {user!.role && <span style={{ display: 'block', fontSize: 11, color: 'var(--t3)' }}>{user!.role}</span>}
+                  <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--t)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{effUser!.name}</span>
+                  {effUser!.role && <span style={{ display: 'block', fontSize: 11, color: 'var(--t3)' }}>{effUser!.role}</span>}
                 </span>
               </div>
-              <Link href={`/profile/${user!.id ?? ''}`} prefetch={false} onClick={() => setDrawer(false)} className="side-link"><UserCircle size={16} /> Profile</Link>
-              <Link href="/settings" prefetch={false} onClick={() => setDrawer(false)} className="side-link"><Settings size={16} /> Settings</Link>
-              <button onClick={() => { setDrawer(false); onLogout?.() }} className="side-link" style={{ color: '#ef4444' }}><LogOut size={16} /> Log out</button>
+              <Link href={account[0].href} prefetch={false} onClick={() => setDrawer(false)} className="side-link"><UserCircle size={16} /> Profile</Link>
+              <Link href={account[1].href} prefetch={false} onClick={() => setDrawer(false)} className="side-link"><Settings size={16} /> Settings</Link>
+              <button onClick={() => { setDrawer(false); handleLogout() }} className="side-link" style={{ color: '#ef4444' }}><LogOut size={16} /> Log out</button>
             </div>
           ) : (
             <div style={{ borderTop: '1px solid var(--br)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
