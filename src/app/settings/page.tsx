@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Navbar } from '@/components/layout/Navbar'
+import { SiteNavView } from '@/components/layout/SiteNavView'
 import toast from 'react-hot-toast'
 import { Loader2, User, Phone, Mail, AtSign, Save } from 'lucide-react'
 
@@ -17,6 +17,8 @@ export default function SettingsPage() {
   const [nickname, setNickname] = useState('')
   const [phone, setPhone] = useState('')
   const [contactEmail, setContactEmail] = useState('')
+  const [role, setRole] = useState<string | null>(null)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -25,11 +27,13 @@ export default function SettingsPage() {
       setUserId(user.id)
       const { data } = await supabase
         .from('profiles')
-        .select('full_name, nickname')
+        .select('full_name, nickname, role, avatar_url')
         .eq('id', user.id)
         .single()
       setFullName(data?.full_name || '')
       setNickname(data?.nickname || '')
+      setRole((data as any)?.role || null)
+      setAvatarUrl((data as any)?.avatar_url || null)
       // Contact info lives in the locked user_private table — read via secure RPC.
       const { data: contact } = await supabase.rpc('my_contact')
       const c = Array.isArray(contact) ? contact[0] : contact
@@ -85,10 +89,16 @@ export default function SettingsPage() {
     </div>
   )
 
+  const handleLogout = async () => { await supabase.auth.signOut(); toast.success('Logged out'); router.push('/'); router.refresh() }
+  const navUser = (!loading && userId)
+    ? { id: userId, name: fullName || 'User', role: role ? role[0].toUpperCase() + role.slice(1) : undefined, avatarUrl }
+    : null
+  const navProps = { active: '/settings', user: navUser, isAdmin: role === 'owner' || role === 'admin', loading, onLogout: handleLogout }
+
   if (loading) {
     return (
       <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}>
-        <Navbar />
+        <SiteNavView {...navProps} />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: 'var(--t3)' }}>
           <Loader2 size={20} className="animate-spin" />
         </div>
@@ -98,7 +108,7 @@ export default function SettingsPage() {
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}>
-      <Navbar />
+      <SiteNavView {...navProps} />
       <main style={{ maxWidth: 560, margin: '0 auto', padding: '28px 16px 48px' }}>
         <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--t)', marginBottom: 4 }}>Settings</h1>
         <p style={{ color: 'var(--t3)', fontSize: 13.5, marginBottom: 26 }}>Manage your account information.</p>

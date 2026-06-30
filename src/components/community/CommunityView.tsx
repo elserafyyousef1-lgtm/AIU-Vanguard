@@ -2,9 +2,9 @@
 // src/components/community/CommunityView.tsx
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { Navbar } from '@/components/layout/Navbar'
+import { useRouter } from 'next/navigation'
+import { SiteNavView } from '@/components/layout/SiteNavView'
 import { ScrollProgress } from '@/components/ui/ScrollProgress'
-import { CommandPalette } from '@/components/ui/CommandPalette'
 import { createClient } from '@/lib/supabase/client'
 import { Heart, MessageCircle, Send, Loader2, Image as ImageIcon, X, MoreHorizontal, Trash2, Pencil, Check, FileText, Video } from 'lucide-react'
 import { COURSES } from '@/lib/data/courses'
@@ -32,7 +32,8 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
   const [menuOpen, setMenuOpen] = useState<string | null>(null)
   const [editingPost, setEditingPost] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
-  const { role, isStaff, isMaster, myCourses } = useAuth()
+  const { role, isStaff, isMaster, myCourses, userId, profile: myProfile, isAdmin, loading: authLoading } = useAuth()
+  const router = useRouter()
   // Hierarchy: general feed → owner/admin/doctor/master.
   // Course pages → owner/admin anywhere; doctor/master/guider only in their assigned courses.
   const canPost = courseFilter
@@ -302,10 +303,15 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
     }
   }
 
+  const handleLogout = async () => { await supabase.auth.signOut(); toast.success('Logged out'); router.push('/'); router.refresh() }
+  const navUser = (!authLoading && userId)
+    ? { id: userId, name: (myProfile as any)?.full_name || 'User', role: role ? role[0].toUpperCase() + role.slice(1) : undefined, avatarUrl: (myProfile as any)?.avatar_url ?? null }
+    : null
+
   return (
     <>
       <ScrollProgress />
-      <Navbar />
+      <SiteNavView active="/community" user={navUser} isAdmin={isAdmin} loading={authLoading} onLogout={handleLogout} />
       <main style={{ maxWidth:680, margin:'0 auto', padding:'40px 20px 80px' }}>
 
         {/* Header */}
@@ -913,7 +919,7 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
           </div>
         )}
       </main>
-      <CommandPalette />
+      {/* CommandPalette is rendered by SiteNav */}
     </>
   )
 }

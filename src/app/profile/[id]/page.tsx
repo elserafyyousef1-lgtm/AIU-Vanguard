@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
-import { Navbar } from '@/components/layout/Navbar'
+import { SiteNavView } from '@/components/layout/SiteNavView'
 import toast from 'react-hot-toast'
 import { Loader2, MessageSquare, Pencil, Check, Linkedin, Camera, ImagePlus, X, Github, Award } from 'lucide-react'
 
@@ -28,8 +28,14 @@ export default function ProfilePage() {
   const params = useParams()
   const router = useRouter()
   const profileId = params?.id as string
-  const { userId, isStudent } = useAuth()
+  const { userId, isStudent, profile: myProfile, isAdmin, role: myRole, loading: authLoading } = useAuth()
   const supabase = createClient()
+
+  const handleLogout = async () => { await supabase.auth.signOut(); toast.success('Logged out'); router.push('/'); router.refresh() }
+  const navUser = (!authLoading && userId)
+    ? { id: userId, name: (myProfile as any)?.full_name || 'User', role: roleMeta(myRole ?? undefined).label, avatarUrl: (myProfile as any)?.avatar_url ?? null }
+    : null
+  const navProps = { user: navUser, isAdmin, loading: authLoading, onLogout: handleLogout }
 
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -209,7 +215,7 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <div style={{ minHeight:'100dvh', background:'var(--bg)' }}>
-        <Navbar />
+        <SiteNavView {...navProps} />
         <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh', color:'var(--t3)' }}>
           <Loader2 size={20} className="animate-spin" />
         </div>
@@ -220,7 +226,7 @@ export default function ProfilePage() {
   if (!profile) {
     return (
       <div style={{ minHeight:'100dvh', background:'var(--bg)' }}>
-        <Navbar />
+        <SiteNavView {...navProps} />
         <div style={{ textAlign:'center', padding:'80px 20px', color:'var(--t3)' }}>
           This profile doesn’t exist.
         </div>
@@ -232,7 +238,7 @@ export default function ProfilePage() {
 
   return (
     <div style={{ minHeight:'100dvh', background:'var(--bg)' }}>
-      <Navbar />
+      <SiteNavView {...navProps} />
       <main style={{ maxWidth:680, margin:'0 auto', padding:'40px 20px' }}>
         <div style={{
           background:'var(--s2)', border:'1px solid var(--br)',

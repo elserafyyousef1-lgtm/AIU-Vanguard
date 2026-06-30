@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
-import { Navbar } from '@/components/layout/Navbar'
+import { SiteNavView } from '@/components/layout/SiteNavView'
 import { RoleGuide } from '@/components/ui/RoleGuide'
 import toast from 'react-hot-toast'
 import { Loader2, Send, Plus, ArrowLeft, MessageSquare, Trash2, Image as ImageIcon, X, Heart } from 'lucide-react'
@@ -39,8 +39,14 @@ function Avatar({ party, size = 42 }: { party: Party; size?: number }) {
 
 export default function MessagesPage() {
   const router = useRouter()
-  const { loading: authLoading, userId, isStudent, role } = useAuth()
+  const { loading: authLoading, userId, isStudent, role, profile, isAdmin } = useAuth()
   const supabase = createClient()
+
+  const handleLogout = async () => { await supabase.auth.signOut(); toast.success('Logged out'); router.push('/'); router.refresh() }
+  const navUser = (!authLoading && userId)
+    ? { id: userId, name: (profile as any)?.full_name || 'User', role: roleLabel(role ?? undefined), avatarUrl: (profile as any)?.avatar_url ?? null }
+    : null
+  const navProps = { active: '/messages', user: navUser, isAdmin, loading: authLoading, onLogout: handleLogout }
 
   const [convos, setConvos] = useState<Conversation[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -198,7 +204,7 @@ export default function MessagesPage() {
   if (authLoading || loading) {
     return (
       <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}>
-        <Navbar />
+        <SiteNavView {...navProps} />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: 'var(--t3)' }}>
           <Loader2 size={20} className="animate-spin" />
         </div>
@@ -210,7 +216,7 @@ export default function MessagesPage() {
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}>
-      <Navbar />
+      <SiteNavView {...navProps} />
       <main style={{ maxWidth: 1000, margin: '0 auto', padding: '20px 16px 32px' }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--t)', marginBottom: 14, letterSpacing: '-0.02em' }}>Messages</h1>
 
