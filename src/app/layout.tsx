@@ -6,16 +6,16 @@ import { ErrorOverlay } from '@/components/ui/ErrorOverlay'
 import '@/styles/globals.css'
 
 export const metadata: Metadata = {
-  title: { default: 'AIU CS Hub', template: '%s | AIU CS Hub' },
+  title: { default: 'AIU Vanguard', template: '%s | AIU Vanguard' },
   description: 'The ultimate study platform for Alamein International University — Computer Science',
   keywords: ['AIU', 'Alamein', 'CS', 'Computer Science', 'Study', 'Database Systems', 'Differential Equations'],
   authors: [{ name: 'Yousef Elserafy' }],
   robots: 'index, follow',
   openGraph: {
     type: 'website',
-    title: 'AIU CS Hub',
-    description: 'Complete study platform for AIU CS students',
-    siteName: 'AIU CS Hub',
+    title: 'AIU Vanguard',
+    description: 'Elite study platform for AIU CS students',
+    siteName: 'AIU Vanguard',
   },
 }
 

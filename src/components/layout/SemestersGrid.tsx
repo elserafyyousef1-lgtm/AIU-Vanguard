@@ -90,7 +90,7 @@ function SemesterCard({ sem, isActive }: { sem: Sem; isActive: boolean }) {
         <div style={{
           position:'absolute', top:-40, right:-40,
           width:120, height:120, borderRadius:'50%',
-          background:'radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%)',
+          background:'radial-gradient(circle, rgba(224,38,75,0.15) 0%, transparent 70%)',
           pointerEvents:'none',
         }} />
       )}
@@ -110,7 +110,7 @@ function SemesterCard({ sem, isActive }: { sem: Sem; isActive: boolean }) {
         <div style={{
           display:'flex', alignItems:'center', justifyContent:'center',
           width:28, height:28, borderRadius:8,
-          background: isActive ? 'rgba(99,102,241,0.12)' : 'var(--s3)',
+          background: isActive ? 'rgba(224,38,75,0.12)' : 'var(--s3)',
           color: isActive ? 'var(--accent)' : 'var(--t3)',
         }}>
           {isActive ? <ChevronRight size={14} /> : <Lock size={12} />}
@@ -126,7 +126,7 @@ function SemesterCard({ sem, isActive }: { sem: Sem; isActive: boolean }) {
             {sem.codes.map(code => (
               <span key={code} style={{
                 padding:'3px 9px', borderRadius:6,
-                background:'rgba(99,102,241,0.1)', border:'1px solid rgba(99,102,241,0.3)',
+                background:'rgba(224,38,75,0.1)', border:'1px solid rgba(224,38,75,0.3)',
                 fontSize:11, fontWeight:700, color:'var(--accent)', fontFamily:'var(--font-mono)',
               }}>
                 {code}

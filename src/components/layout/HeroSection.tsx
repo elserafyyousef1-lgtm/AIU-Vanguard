@@ -46,7 +46,7 @@ export function HeroSection() {
         if (p.y > canvas.height) p.y = 0
         ctx.beginPath()
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
-        ctx.fillStyle = `rgba(99,102,241,${p.o})`
+        ctx.fillStyle = `rgba(224,38,75,${p.o})`
         ctx.fill()
       })
       animId = requestAnimationFrame(draw)
@@ -72,7 +72,7 @@ export function HeroSection() {
         position:'absolute', top:'50%', left:'50%',
         transform:'translate(-50%,-60%)',
         width:'min(600px,90vw)', height:300,
-        background:'radial-gradient(ellipse, rgba(99,102,241,0.12) 0%, transparent 70%)',
+        background:'radial-gradient(ellipse, rgba(224,38,75,0.12) 0%, transparent 70%)',
         pointerEvents:'none',
       }} />
 
@@ -81,7 +81,7 @@ export function HeroSection() {
         <div className="anim-1" style={{
           display:'inline-flex', alignItems:'center', gap:8,
           padding:'5px 14px', borderRadius:20,
-          background:'rgba(99,102,241,0.1)', border:'1px solid rgba(99,102,241,0.25)',
+          background:'rgba(224,38,75,0.1)', border:'1px solid rgba(224,38,75,0.25)',
           marginBottom:24,
         }}>
           <span style={{ width:6, height:6, borderRadius:'50%', background:'var(--accent)', boxShadow:'0 0 6px var(--accent)', flexShrink:0 }} />
@@ -125,7 +125,7 @@ export function HeroSection() {
             background:'linear-gradient(135deg, var(--accent), var(--accent-2))',
             color:'white', textDecoration:'none', fontWeight:700, fontSize:14.5,
             letterSpacing:'-0.01em',
-            boxShadow:'0 4px 20px rgba(99,102,241,0.35)',
+            boxShadow:'0 4px 20px rgba(224,38,75,0.35)',
             transition:'all 0.2s',
           }}>
             Start Studying →
