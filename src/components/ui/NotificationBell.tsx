@@ -93,7 +93,7 @@ export function NotificationBell() {
   const [items, setItems] = useState<Notif[]>([])
   const [userId, setUserId] = useState<string | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
-  const prevUnread = useRef(0)
+  const seenIds = useRef<Set<string> | null>(null)
   const welcomePlayed = useRef(false)
 
   const unreadItems = items.filter(n => !n.read_at).length
@@ -126,16 +126,27 @@ export function NotificationBell() {
     return () => { supabase.removeChannel(channel) }
   }, [userId, load])
 
-  // Play the notification chime when the unread count increases
+  // Sound on NEW notifications — two tiers:
+  //   important (new course content / promotion) → 'notify' ("Attention survivor…" voice)
+  //   everything else (likes, comments, messages…) → 'ding' (normal soft chime)
+  // 'welcome' is excluded here — it has its own one-time fanfare effect below.
+  const IMPORTANT_TYPES = ['promotion', 'material', 'assignment', 'grade_released']
   useEffect(() => {
-    if (unreadItems > prevUnread.current && prevUnread.current !== 0) {
-      if (useUserStore.getState().settings.notifications !== false) playSound('notify')
-      setBadgeSeen(false) // a new notification arrived → show badge again
-      setShake(true)
-      setTimeout(() => setShake(false), 600) // one shake, in sync with the chime
+    if (seenIds.current === null) {
+      // first load of the list — record what exists, no sound
+      seenIds.current = new Set(items.map(n => n.id))
+      return
     }
-    prevUnread.current = unreadItems
-  }, [unreadItems])
+    const fresh = items.filter(n => !n.read_at && n.type !== 'welcome' && !seenIds.current!.has(n.id))
+    items.forEach(n => seenIds.current!.add(n.id))
+    if (fresh.length === 0) return
+    if (useUserStore.getState().settings.notifications !== false) {
+      playSound(fresh.some(n => IMPORTANT_TYPES.includes(n.type)) ? 'notify' : 'ding')
+    }
+    setBadgeSeen(false) // a new notification arrived → show badge again
+    setShake(true)
+    setTimeout(() => setShake(false), 600) // one shake, in sync with the sound
+  }, [items])
 
   // Play the welcome fanfare once per session when an unread welcome notification exists
   useEffect(() => {
