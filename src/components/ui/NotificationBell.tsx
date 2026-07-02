@@ -35,7 +35,7 @@ const typeText = (t: string, meta?: string | null) => {
     case 'material': return `added new material in ${meta || 'your course'}`
     case 'grade_released': return `released your grade in ${meta || 'a course'}`
     case 'assignment': return `posted a new assignment in ${meta || 'a course'}`
-    case 'welcome': return 'Welcome to AIU CS Hub! 🎉 Tap to explore your dashboard.'
+    case 'welcome': return 'Welcome to AIU Vanguard! 🎉 Tap to explore your dashboard.'
     default: return 'interacted with you'
   }
 }
@@ -215,7 +215,7 @@ export function NotificationBell() {
               style={{
                 display: 'flex', alignItems: 'flex-start', gap: 11, width: '100%',
                 padding: '12px 16px', textAlign: 'left', cursor: 'pointer',
-                background: n.read_at ? 'transparent' : 'var(--accent-bg, rgba(99,102,241,0.08))',
+                background: n.read_at ? 'transparent' : 'var(--accent-bg, rgba(224,38,75,0.08))',
                 borderBottom: '1px solid var(--br)',
               }}
             >

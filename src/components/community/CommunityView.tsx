@@ -40,10 +40,14 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
     ? (role === 'owner' || role === 'admin' || myCourses.includes(courseFilter))
     : (isStaff || isMaster)
   const supabase = createClient()
+  const [courseCodes, setCourseCodes] = useState<string[]>([])
 
-  // Get current user
+  // Current user (local session read — RLS still guards every query) + the REAL course list
+  // for the filter chips (was a hardcoded 4-course array from the study-package era).
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user))
+    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null))
+    supabase.from('courses').select('code').order('code')
+      .then(({ data }) => setCourseCodes((data || []).map((c: any) => c.code)))
   }, [])
 
   // Load posts
@@ -337,7 +341,7 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
             color: !courseFilter ? 'white' : 'var(--t2)',
             border:'1px solid var(--br)',
           }}>General</Link>
-          {['CSE221', 'MAT312', 'CSE301', 'CSE311'].map(slug => (
+          {courseCodes.map(slug => (
             <Link key={slug} href={`/community/${slug}`} style={{
               padding:'7px 14px', borderRadius:9, fontSize:13, fontWeight:600, textDecoration:'none',
               background: courseFilter === slug ? (COURSES[slug]?.color || 'var(--accent)') : 'var(--s2)',
@@ -466,7 +470,7 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
               >
                 <Video size={15} />
               </button>
-              {!courseFilter && ['', 'CSE221', 'MAT312', 'CSE301', 'CSE311'].map(slug => (
+              {!courseFilter && ['', ...courseCodes].map(slug => (
                 <button
                   key={slug}
                   onClick={() => setCourseTag(slug)}

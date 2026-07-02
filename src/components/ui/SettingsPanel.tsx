@@ -94,7 +94,7 @@ export function SettingsPanel() {
         </div>
 
         <div style={{ marginTop:20, fontSize:11, color:'var(--t3)', textAlign:'center' }}>
-          AIU CS Hub v2.0 · Built for Alamein International University
+          AIU Vanguard · Built for Alamein International University
         </div>
       </div>
     </div>

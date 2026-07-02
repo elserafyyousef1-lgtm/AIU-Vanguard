@@ -1,12 +1,30 @@
 'use client'
-// src/components/layout/HeroSection.tsx
+// src/components/layout/HeroSection.tsx — the AIU Vanguard platform hero.
+// Copy follows the design reference ("The elite rise here."): this is the university
+// platform's front door, not a single-course study package. Stats are DB-driven.
 import Link from 'next/link'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
 export function HeroSection() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [stats, setStats] = useState<{ semesters: number; courses: number } | null>(null)
 
-  // Particle background — subtle dots like original site
+  // Real numbers from the DB (same anon-readable tables the semesters grid uses).
+  useEffect(() => {
+    const supabase = createClient()
+    const load = async () => {
+      const [{ data: sems }, { count: courses }] = await Promise.all([
+        supabase.from('courses').select('semester_id'),
+        supabase.from('courses').select('id', { count: 'exact', head: true }),
+      ])
+      const activeSems = new Set((sems || []).map((c: any) => c.semester_id)).size
+      setStats({ semesters: activeSems || 1, courses: courses || 0 })
+    }
+    load()
+  }, [])
+
+  // Particle background — subtle crimson embers
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -23,7 +41,6 @@ export function HeroSection() {
     resize()
     window.addEventListener('resize', resize)
 
-    // Create 60 particles
     for (let i = 0; i < 60; i++) {
       particles.push({
         x: Math.random() * canvas.width,
@@ -60,7 +77,7 @@ export function HeroSection() {
   }, [])
 
   return (
-    <section style={{ position:'relative', overflow:'hidden', padding:'80px 20px 72px', textAlign:'center' }}>
+    <section style={{ position:'relative', overflow:'hidden', padding:'88px 20px 76px', textAlign:'center' }}>
       {/* Canvas bg */}
       <canvas ref={canvasRef} style={{
         position:'absolute', inset:0, width:'100%', height:'100%',
@@ -76,40 +93,42 @@ export function HeroSection() {
         pointerEvents:'none',
       }} />
 
-      <div style={{ position:'relative', maxWidth:680, margin:'0 auto' }}>
-        {/* Eyebrow */}
+      <div style={{ position:'relative', maxWidth:720, margin:'0 auto' }}>
+        {/* Kicker */}
         <div className="anim-1" style={{
-          display:'inline-flex', alignItems:'center', gap:8,
-          padding:'5px 14px', borderRadius:20,
-          background:'rgba(224,38,75,0.1)', border:'1px solid rgba(224,38,75,0.25)',
-          marginBottom:24,
+          display:'inline-flex', alignItems:'center', gap:9,
+          padding:'6px 15px', borderRadius:20,
+          background:'var(--crimson-dim)', border:'1px solid var(--crimson-line)',
+          marginBottom:26,
         }}>
-          <span style={{ width:6, height:6, borderRadius:'50%', background:'var(--accent)', boxShadow:'0 0 6px var(--accent)', flexShrink:0 }} />
-          <span style={{ fontFamily:'var(--font-mono)', fontSize:11, color:'var(--accent)', letterSpacing:'0.08em', textTransform:'uppercase' }}>
+          <span style={{ width:6, height:6, borderRadius:'50%', background:'var(--accent)', boxShadow:'0 0 9px var(--crimson-glow)', flexShrink:0 }} />
+          <span style={{ fontFamily:'var(--font-mono)', fontSize:10.5, color:'var(--accent-2)', letterSpacing:'0.18em', textTransform:'uppercase' }}>
             Alamein International University · CS Department
           </span>
         </div>
 
-        {/* Headline */}
+        {/* Headline — from the Vanguard design reference */}
         <h1 className="anim-2" style={{
-          fontSize:'clamp(32px,6vw,64px)',
-          fontWeight:800, letterSpacing:'-0.035em',
-          color:'var(--t)', lineHeight:1.05,
-          marginBottom:20,
+          fontFamily:'var(--font-display)',
+          fontSize:'clamp(40px,7.5vw,76px)',
+          fontWeight:800, letterSpacing:'-0.04em',
+          color:'var(--t)', lineHeight:1.02,
+          marginBottom:24,
         }}>
-          Database Systems<br />
+          The elite<br />
           <span style={{
             background:'linear-gradient(135deg, var(--accent), var(--accent-2))',
             WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent',
-          }}>Study Package</span>
+          }}>rise here.</span>
         </h1>
 
         {/* Sub */}
         <p className="anim-3" style={{
-          fontSize:'clamp(14px,2vw,17px)', color:'var(--t2)',
-          lineHeight:1.65, maxWidth:520, margin:'0 auto 36px',
+          fontSize:'clamp(14.5px,2vw,17px)', color:'var(--t2)',
+          lineHeight:1.75, maxWidth:480, margin:'0 auto 34px',
         }}>
-          Everything you need to ace the final. Complete study sheets for all 9 lectures, 60-question practice exam, AI Tutor, and flashcards — for all Semester 4 courses.
+          An elite digital academy. Every lecture, every exam trap, every formula —
+          engineered into one platform, with an AI tutor trained on your exact syllabus.
         </p>
 
         {/* Credit */}
@@ -120,35 +139,28 @@ export function HeroSection() {
 
         {/* CTAs */}
         <div className="anim-4" style={{ display:'flex', gap:12, justifyContent:'center', flexWrap:'wrap' }}>
-          <Link href="/semesters/4" style={{
-            padding:'13px 28px', borderRadius:12,
+          <Link href="/dashboard" style={{
+            padding:'13px 30px', borderRadius:12,
             background:'linear-gradient(135deg, var(--accent), var(--accent-2))',
             color:'white', textDecoration:'none', fontWeight:700, fontSize:14.5,
             letterSpacing:'-0.01em',
-            boxShadow:'0 4px 20px rgba(224,38,75,0.35)',
+            boxShadow:'inset 0 1px 0 rgba(255,255,255,0.25), var(--shadow-crimson)',
             transition:'all 0.2s',
           }}>
-            Start Studying →
+            Get started →
           </Link>
-          <Link href="/courses/cse221" style={{
+          <a href="#semesters" style={{
             padding:'13px 28px', borderRadius:12,
-            background:'var(--s2)', border:'1px solid var(--br2)',
+            background:'var(--glass)', border:'1px solid var(--br2)',
             color:'var(--t)', textDecoration:'none', fontWeight:600, fontSize:14.5,
+            backdropFilter:'blur(10px)',
             transition:'all 0.2s',
           }}>
-            CSE221 — Databases
-          </Link>
-          <Link href="/courses/mat312" style={{
-            padding:'13px 28px', borderRadius:12,
-            background:'var(--s2)', border:'1px solid rgba(16,185,129,0.3)',
-            color:'var(--t)', textDecoration:'none', fontWeight:600, fontSize:14.5,
-            transition:'all 0.2s',
-          }}>
-            MAT312 — Diff. Equations
-          </Link>
+            Browse semesters
+          </a>
         </div>
 
-        {/* Stats row */}
+        {/* Stats row — real platform numbers, not stale course trivia */}
         <div className="anim-4" style={{
           display:'flex', justifyContent:'center', gap:'clamp(20px,4vw,48px)',
           marginTop:52, paddingTop:32,
@@ -156,11 +168,10 @@ export function HeroSection() {
           flexWrap:'wrap',
         }}>
           {[
-            { v:'4', l:'Courses', sub:'Semester 4' },
-            { v:'9', l:'Lectures', sub:'Per course' },
-            { v:'133+', l:'Practice Q\'s', sub:'MCQ + T/F' },
-            { v:'43', l:'Flashcards', sub:'MAT312' },
-            { v:'AI', l:'Tutor', sub:'CSE221' },
+            { v: stats ? String(stats.semesters) : '—', l:'Active Semesters', sub:'8-semester program' },
+            { v: stats ? String(stats.courses) : '—', l:'Live Courses', sub:'Materials & grades' },
+            { v:'AI', l:'Vanguard Tutor', sub:'Trained on your syllabus' },
+            { v:'24/7', l:'Community', sub:'Your squad, always on' },
           ].map(({ v, l, sub }) => (
             <div key={l} style={{ textAlign:'center' }}>
               <div style={{

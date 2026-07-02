@@ -310,7 +310,7 @@ export default function PeoplePage() {
                       title="Course assignments"
                       style={{
                         display: 'flex', alignItems: 'center', gap: 5, padding: '7px 11px', borderRadius: 9,
-                        background: isOpen ? 'rgba(99,102,241,0.1)' : 'var(--s3)',
+                        background: isOpen ? 'rgba(224,38,75,0.1)' : 'var(--s3)',
                         border: '1px solid var(--br)', color: 'var(--t2)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
                       }}
                     >

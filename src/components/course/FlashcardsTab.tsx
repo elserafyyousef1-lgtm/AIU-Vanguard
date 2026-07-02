@@ -169,9 +169,9 @@ export function FlashcardsTab({ cards }: Props) {
               onClick={() => { setCurrent(i); setFlipped(false); window.scrollTo({top:0, behavior:'smooth'}) }}
               style={{
                 padding:'12px 16px', borderRadius:10, textAlign:'left',
-                background: i === current ? 'rgba(99,102,241,0.1)' :
+                background: i === current ? 'rgba(224,38,75,0.1)' :
                              reviewed.has(i) ? 'rgba(16,185,129,0.05)' : 'var(--s2)',
-                border:`1px solid ${i === current ? 'rgba(99,102,241,0.4)' :
+                border:`1px solid ${i === current ? 'rgba(224,38,75,0.4)' :
                                     reviewed.has(i) ? 'rgba(16,185,129,0.2)' : 'var(--br)'}`,
                 cursor:'pointer', fontFamily:'var(--font)',
                 transition:'all 0.12s',

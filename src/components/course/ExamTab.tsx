@@ -155,10 +155,10 @@ export function ExamTab({ questions, course }: Props) {
                           padding:'10px 14px', borderRadius:10, textAlign:'left',
                           background: isCorrectOpt ? 'rgba(16,185,129,0.08)' :
                                       isWrongOpt ? 'rgba(239,68,68,0.08)' :
-                                      isSelected ? 'rgba(99,102,241,0.08)' : 'var(--s3)',
+                                      isSelected ? 'rgba(224,38,75,0.08)' : 'var(--s3)',
                           border: `1px solid ${isCorrectOpt ? 'rgba(16,185,129,0.4)' :
                                                 isWrongOpt ? 'rgba(239,68,68,0.4)' :
-                                                isSelected ? 'rgba(99,102,241,0.4)' : 'var(--br)'}`,
+                                                isSelected ? 'rgba(224,38,75,0.4)' : 'var(--br)'}`,
                           color: isCorrectOpt ? 'var(--accent-green)' :
                                  isWrongOpt ? 'var(--accent-red)' :
                                  isSelected ? 'var(--t)' : 'var(--t2)',
@@ -199,10 +199,10 @@ export function ExamTab({ questions, course }: Props) {
                           padding:'8px 20px', borderRadius:9,
                           background: isCorrectOpt ? 'rgba(16,185,129,0.1)' :
                                       isWrongOpt ? 'rgba(239,68,68,0.1)' :
-                                      isSelected ? 'rgba(99,102,241,0.1)' : 'var(--s3)',
+                                      isSelected ? 'rgba(224,38,75,0.1)' : 'var(--s3)',
                           border: `1px solid ${isCorrectOpt ? 'rgba(16,185,129,0.4)' :
                                                 isWrongOpt ? 'rgba(239,68,68,0.4)' :
-                                                isSelected ? 'rgba(99,102,241,0.4)' : 'var(--br)'}`,
+                                                isSelected ? 'rgba(224,38,75,0.4)' : 'var(--br)'}`,
                           color: isCorrectOpt ? 'var(--accent-green)' :
                                  isWrongOpt ? 'var(--accent-red)' :
                                  isSelected ? 'var(--t)' : 'var(--t2)',

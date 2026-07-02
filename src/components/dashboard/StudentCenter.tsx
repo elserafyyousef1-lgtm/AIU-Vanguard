@@ -154,7 +154,7 @@ export function StudentCenter() {
               {semCourses.map(c => (
                 <div key={c.code}>
                   <button onClick={() => setOpenCourse(openCourse === c.code ? null : c.code)}
-                    style={{ ...rowStyle, width: '100%', cursor: 'pointer', textAlign: 'left', background: openCourse === c.code ? 'rgba(99,102,241,0.08)' : 'var(--s3)' }}>
+                    style={{ ...rowStyle, width: '100%', cursor: 'pointer', textAlign: 'left', background: openCourse === c.code ? 'rgba(224,38,75,0.08)' : 'var(--s3)' }}>
                     <BookOpen size={14} style={{ color: 'var(--accent)', flexShrink: 0 }} />
                     <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>{c.code}</span>
                     <span style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: 'var(--t)' }}>{c.title}</span>

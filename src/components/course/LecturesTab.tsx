@@ -334,7 +334,7 @@ export function LecturesTab({ lectures, course }: Props) {
         .lec-step { display:flex; gap:12px; align-items:flex-start; margin-bottom:10px; }
         .lec-step-n { width:24px; height:24px; border-radius:7px; background:var(--accent); color:white; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
         .lec-step-t { font-size:13.5px; color:var(--t2); line-height:1.55; }
-        .lec-tip { background:rgba(99,102,241,.07); border:1px solid rgba(99,102,241,.2); border-radius:10px; padding:10px 14px; font-size:12.5px; color:var(--t2); margin-top:12px; }
+        .lec-tip { background:rgba(224,38,75,.07); border:1px solid rgba(224,38,75,.2); border-radius:10px; padding:10px 14px; font-size:12.5px; color:var(--t2); margin-top:12px; }
         .lec-tip strong { color:var(--accent); }
         .lec-rule { background:var(--s3); border-left:3px solid var(--accent); padding:10px 14px; border-radius:0 8px 8px 0; font-size:13px; color:var(--t2); margin:10px 0; line-height:1.55; }
         .lec-sub-label { font-family:var(--font-mono); font-size:10px; color:var(--accent); text-transform:uppercase; letter-spacing:.1em; margin-bottom:8px; }

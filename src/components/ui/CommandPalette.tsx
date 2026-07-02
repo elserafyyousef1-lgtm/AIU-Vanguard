@@ -7,15 +7,11 @@ import { Search } from 'lucide-react'
 
 const COMMANDS = [
   { label:'🏠 Home', path:'/', group:'Navigation' },
-  { label:'📚 Semester 4', path:'/semesters/4', group:'Navigation' },
-  { label:'💬 Community', path:'/community', group:'Navigation' },
   { label:'📊 Dashboard', path:'/dashboard', group:'Navigation' },
-  { label:'🔐 Login', path:'/login', group:'Navigation' },
-  // Courses
-  { label:'📊 CSE221 — Database Systems', path:'/courses/cse221', group:'Courses' },
-  { label:'📐 MAT312 — Differential Equations', path:'/courses/mat312', group:'Courses' },
-  { label:'🤖 CSE301 — Machine Learning', path:'/courses/cse301', group:'Courses' },
-  { label:'⚙️ CSE311 — Computer Architecture', path:'/courses/cse311', group:'Courses' },
+  { label:'📚 Courses', path:'/semesters/4', group:'Navigation' },
+  { label:'💬 Community', path:'/community', group:'Navigation' },
+  { label:'✉️ Messages', path:'/messages', group:'Navigation' },
+  { label:'⚙️ Settings', path:'/settings', group:'Account' },
 ]
 
 export function CommandPalette() {

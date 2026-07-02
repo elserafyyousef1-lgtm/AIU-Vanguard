@@ -205,12 +205,12 @@ export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
           borderBottom:'1px solid var(--br)',
           display:'flex', alignItems:'center', justifyContent:'space-between',
           flexShrink:0,
-          background:'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(139,92,246,0.04))',
+          background:'linear-gradient(135deg, rgba(224,38,75,0.06), rgba(139,92,246,0.04))',
         }}>
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
             <div style={{
               width:32, height:32, borderRadius:9,
-              background:'linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.2))',
+              background:'linear-gradient(135deg, rgba(224,38,75,0.2), rgba(139,92,246,0.2))',
               display:'flex', alignItems:'center', justifyContent:'center',
               color:'var(--accent)',
             }}>

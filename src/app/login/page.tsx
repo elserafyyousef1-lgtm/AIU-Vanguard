@@ -267,7 +267,7 @@ function LoginForm() {
               cursor: loading ? 'not-allowed' : 'pointer',
               fontFamily:'var(--font)', letterSpacing:'-0.01em',
               display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-              boxShadow: loading ? 'none' : '0 4px 16px rgba(99,102,241,0.35)',
+              boxShadow: loading ? 'none' : '0 4px 16px rgba(224,38,75,0.35)',
               transition:'all 0.2s',
             }}
           >
