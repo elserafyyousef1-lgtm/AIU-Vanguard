@@ -778,21 +778,24 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
                           return (
                             <div key={c.id} style={{ marginBottom:12, marginLeft: c._depth ? 38 : 0 }}>
                             <div style={{ display:'flex', gap:10 }}>
-                              <div style={{
-                                width:32, height:32, borderRadius:'50%', flexShrink:0, overflow:'hidden',
-                                background:'var(--s4)', display:'flex', alignItems:'center',
-                                justifyContent:'center', fontWeight:700, fontSize:12, color:'var(--t2)',
-                              }}>
-                                {c.profiles?.avatar_url
-                                  ? <img src={c.profiles.avatar_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                                  : (c.profiles?.full_name || 'U')[0].toUpperCase()
-                                }
-                              </div>
+                              {/* comment author avatar + name → their profile */}
+                              <Link href={`/profile/${c.user_id}`} style={{ flexShrink:0 }}>
+                                <div style={{
+                                  width:32, height:32, borderRadius:'50%', overflow:'hidden',
+                                  background:'var(--s4)', display:'flex', alignItems:'center',
+                                  justifyContent:'center', fontWeight:700, fontSize:12, color:'var(--t2)',
+                                }}>
+                                  {c.profiles?.avatar_url
+                                    ? <img src={c.profiles.avatar_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                                    : (c.profiles?.full_name || 'U')[0].toUpperCase()
+                                  }
+                                </div>
+                              </Link>
                               <div style={{ flex:1, minWidth:0 }}>
                                 <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
-                                  <span style={{ fontWeight:700, fontSize:13, color:'var(--t)' }}>
+                                  <Link href={`/profile/${c.user_id}`} style={{ fontWeight:700, fontSize:13, color:'var(--t)', textDecoration:'none' }}>
                                     {c.profiles?.full_name || 'User'}
-                                  </span>
+                                  </Link>
                                   {cb && (
                                     <span style={{ fontSize:10, fontWeight:700, color:cb.color }}>{cb.label}</span>
                                   )}

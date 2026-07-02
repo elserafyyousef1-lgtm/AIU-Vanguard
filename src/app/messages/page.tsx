@@ -1,6 +1,7 @@
 'use client'
 // src/app/messages/page.tsx — premium rewrite
 import { useEffect, useState, useCallback, useRef } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
@@ -280,11 +281,14 @@ export default function MessagesPage() {
               <>
                 <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--br)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, background: 'var(--s2)' }}>
                   <button onClick={() => setActiveId(null)} className="msg-back" style={{ background: 'none', border: 'none', color: 'var(--t2)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><ArrowLeft size={18} /></button>
-                  <Avatar party={other(activeConvo)} size={36} />
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, color: 'var(--t)', fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{other(activeConvo).full_name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--t3)' }}>{roleLabel(other(activeConvo).role)}</div>
-                  </div>
+                  {/* clicking the person opens their profile */}
+                  <Link href={`/profile/${other(activeConvo).id}`} title="View profile" style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', minWidth: 0 }}>
+                    <Avatar party={other(activeConvo)} size={36} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, color: 'var(--t)', fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{other(activeConvo).full_name}</div>
+                      <div style={{ fontSize: 12, color: 'var(--t3)' }}>{roleLabel(other(activeConvo).role)}</div>
+                    </div>
+                  </Link>
                 </div>
 
                 <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '18px 16px', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
