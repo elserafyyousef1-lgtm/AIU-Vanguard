@@ -2,28 +2,19 @@
 // src/components/ui/NotificationBell.tsx
 // ───────────────────────────────────────────────────────────
 // Bell icon + unread badge + dropdown list of notifications.
-// Realtime updates, deep links to the source, mark-as-read.
+// Data/realtime/sound live in the TAB-WIDE store (src/lib/notificationStore) so navigating
+// between pages never refetches, resubscribes, or re-plays sounds — Twitter/Canvas style.
+// This component is just the UI: badge, shake, dropdown, deep links, mark-as-read.
 // ───────────────────────────────────────────────────────────
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Bell, Heart, MessageCircle, CornerUpLeft, Mail, Trash2, Megaphone, Award, GraduationCap, BookOpen, UserCog, ClipboardList, Sparkles } from 'lucide-react'
 import { playSound } from '@/lib/sound'
-import { useUserStore } from '@/lib/store'
-
-interface Notif {
-  id: string
-  actor_id: string | null
-  type: string  // like | comment | reply | message | post | promotion | teach_* | course_assigned | enroll_* | profile_updated
-  post_id: string | null
-  comment_id: string | null
-  conversation_id: string | null
-  read_at: string | null
-  created_at: string
-  meta?: string | null
-  actor?: { full_name: string; avatar_url?: string } | null
-  post?: { course_tag: string | null } | null
-}
+import {
+  type Notif, getNotifications, isBadgeSeen, markBadgeSeen,
+  subscribeNotifications, ensureNotifications, reloadNotifications, removeNotificationLocal,
+} from '@/lib/notificationStore'
 
 const typeText = (t: string, meta?: string | null) => {
   switch (t) {
@@ -88,65 +79,27 @@ export function NotificationBell() {
   const router = useRouter()
   const supabase = createClient()
   const [open, setOpen] = useState(false)
-  const [badgeSeen, setBadgeSeen] = useState(false)
   const [shake, setShake] = useState(false)
-  const [items, setItems] = useState<Notif[]>([])
-  const [userId, setUserId] = useState<string | null>(null)
+  const [, force] = useState(0)
   const wrapRef = useRef<HTMLDivElement>(null)
-  const seenIds = useRef<Set<string> | null>(null)
   const welcomePlayed = useRef(false)
 
+  // Tab-wide store is the single source of truth (fetch/realtime/sound live there).
+  const items = getNotifications()
   const unreadItems = items.filter(n => !n.read_at).length
-  const badge = badgeSeen ? 0 : unreadItems
+  const badge = isBadgeSeen() ? 0 : unreadItems
 
-  const load = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    setUserId(user.id)
-    const { data } = await supabase
-      .from('notifications')
-      .select(`*, actor:actor_id (full_name, avatar_url), post:post_id (course_tag)`)
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(30)
-    setItems((data as any) || [])
+  useEffect(() => {
+    const unsub = subscribeNotifications((event) => {
+      force(x => x + 1)
+      if (event === 'fresh') { // a genuinely new notification arrived (sound already played)
+        setShake(true)
+        setTimeout(() => setShake(false), 600)
+      }
+    })
+    void ensureNotifications() // idempotent — starts once per tab, survives navigation
+    return unsub
   }, [])
-
-  useEffect(() => { load() }, [load])
-
-  // Realtime: new notification → reload + play sound
-  useEffect(() => {
-    if (!userId) return
-    const channel = supabase
-      .channel('notif-rt')
-      .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
-        () => load())
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [userId, load])
-
-  // Sound on NEW notifications — two tiers:
-  //   important (new course content / promotion) → 'notify' ("Attention survivor…" voice)
-  //   everything else (likes, comments, messages…) → 'ding' (normal soft chime)
-  // 'welcome' is excluded here — it has its own one-time fanfare effect below.
-  const IMPORTANT_TYPES = ['promotion', 'material', 'assignment', 'grade_released']
-  useEffect(() => {
-    if (seenIds.current === null) {
-      // first load of the list — record what exists, no sound
-      seenIds.current = new Set(items.map(n => n.id))
-      return
-    }
-    const fresh = items.filter(n => !n.read_at && n.type !== 'welcome' && !seenIds.current!.has(n.id))
-    items.forEach(n => seenIds.current!.add(n.id))
-    if (fresh.length === 0) return
-    if (useUserStore.getState().settings.notifications !== false) {
-      playSound(fresh.some(n => IMPORTANT_TYPES.includes(n.type)) ? 'notify' : 'ding')
-    }
-    setBadgeSeen(false) // a new notification arrived → show badge again
-    setShake(true)
-    setTimeout(() => setShake(false), 600) // one shake, in sync with the sound
-  }, [items])
 
   // Play the welcome fanfare once per session when an unread welcome notification exists
   useEffect(() => {
@@ -175,35 +128,36 @@ export function NotificationBell() {
       await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', n.id)
     }
     setOpen(false)
+    const reload = () => { void reloadNotifications() }
     // deep link to the source
-    if (n.type === 'teach_request') { router.push('/admin'); load(); return }
+    if (n.type === 'teach_request') { router.push('/admin'); reload(); return }
     if (['teach_approved','teach_rejected','course_assigned','enroll_removed','enroll_moved','enroll_updated','profile_updated','promotion'].includes(n.type)) {
-      router.push('/dashboard'); load(); return
+      router.push('/dashboard'); reload(); return
     }
     if (n.type === 'material') {
       const course = (n as any).meta
       router.push(course ? `/courses/${String(course).toLowerCase()}/modules` : '/dashboard')
-      load(); return
+      reload(); return
     }
     if (n.type === 'grade_released' || n.type === 'assignment') {
       const course = n.meta
       router.push(course ? `/courses/${String(course).toLowerCase()}/assignments` : '/dashboard')
-      load(); return
+      reload(); return
     }
-    if (n.type === 'welcome') { router.push('/dashboard'); load(); return }
+    if (n.type === 'welcome') { router.push('/dashboard'); reload(); return }
     if (n.type === 'message') router.push('/messages')
     else if (n.post_id) {
       const course = n.post?.course_tag
       router.push(course ? `/community/${course}#post-${n.post_id}` : `/community#post-${n.post_id}`)
     }
     else router.push('/community')
-    load()
+    reload()
   }
 
   // Delete a single notification (with optimistic removal)
   const deleteNotif = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation() // don't trigger openNotif
-    setItems(prev => prev.filter(n => n.id !== id))
+    removeNotificationLocal(id)
     await supabase.from('notifications').delete().eq('id', id)
   }
 
@@ -211,7 +165,7 @@ export function NotificationBell() {
     const next = !open
     setOpen(next)
     if (next) {
-      setBadgeSeen(true) // clear the red badge, but keep items highlighted until clicked
+      markBadgeSeen() // clear the red badge, but keep items highlighted until clicked
     }
   }
 
