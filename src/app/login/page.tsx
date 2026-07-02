@@ -1,16 +1,16 @@
 'use client'
 // src/app/login/page.tsx
 import { useState, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 
 function LoginForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
-  const redirect = searchParams.get('redirect') || '/'
+  // After login you land on YOUR dashboard (like any site) unless a protected page sent you here.
+  const redirect = searchParams.get('redirect') || '/dashboard'
 
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [loading, setLoading] = useState(false)
@@ -71,8 +71,10 @@ function LoginForm() {
         }
 
         toast.success(' Account created!')
-        router.push(redirect)
-        router.refresh()
+        // HARD navigation after auth: guarantees the fresh session cookie reaches the
+        // server render and kills the push()/refresh() race that swallowed the first click.
+        window.location.assign(redirect)
+        return
       } else {
         const raw = form.email.trim()
         if (!raw) {
@@ -100,8 +102,9 @@ function LoginForm() {
         }
 
         toast.success('أهلاً بعودتك! — Welcome back!')
-        router.push(redirect)
-        router.refresh()
+        // HARD navigation after auth (same rationale as the register branch above).
+        window.location.assign(redirect)
+        return
       }
     } catch {
       toast.error(' — Unexpected error. Please try again.')
