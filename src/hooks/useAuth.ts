@@ -44,7 +44,11 @@ export function useAuth(): AuthState {
     let active = true
 
     const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      // getSession(): reads the cookie locally (~0ms) instead of getUser()'s 240ms–1.5s
+      // network validation per page mount. Display/identity only — every query below is
+      // still enforced by RLS with the JWT, and the middleware gates protected routes.
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user ?? null
       if (!user) {
         if (active) setState(s => ({ ...s, loading: false }))
         return

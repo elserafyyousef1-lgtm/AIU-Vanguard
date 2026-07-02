@@ -22,15 +22,31 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // Refresh session — MUST call getUser() to keep session alive.
-  // [diag] measure getUser() latency server-side → Vercel runtime logs. MEASUREMENT ONLY:
-  // identical call + identical result; the wrapper changes no behavior. Remove after diagnosis.
-  const __t0 = performance.now()
-  const { data: { user } } = await supabase.auth.getUser()
-  const __ms = Math.round(performance.now() - __t0)
-  console.log(`[mw-timing] getUser=${__ms}ms path=${request.nextUrl.pathname} prefetch=${request.headers.get('next-router-prefetch') ?? '0'} auth=${user ? '1' : '0'}`)
-
   const path = request.nextUrl.pathname
+
+  // ── HYBRID SESSION CHECK (perf fix — measured: getUser() = 240ms–1.5s network round-trip
+  //    per authenticated navigation; getSession() reads the cookie locally in ~0ms). ──
+  //
+  // Routine navigation only needs to know "is there a session?" to route to /login. That is
+  // a ROUTING decision, not data protection — every query is still enforced by RLS on the DB
+  // with the JWT, so a forged/expired cookie can never read data. For that decision we use
+  // getSession() (local). getUser() (server-verified) is kept where it matters:
+  //   1. /admin — privileged area gate stays server-validated on every hit.
+  //   2. Sessions close to expiry — forces the token refresh that keeps the session alive
+  //      (the reason middleware used to call getUser() on every request).
+  const __t0 = performance.now()
+  const { data: { session } } = await supabase.auth.getSession()
+  let user = session?.user ?? null
+  let mode = 'session'
+
+  const nearExpiry = !!session && ((session.expires_at ?? 0) - Math.floor(Date.now() / 1000) < 120)
+  if ((user && path.startsWith('/admin')) || nearExpiry) {
+    mode = nearExpiry ? 'user(refresh)' : 'user(admin)'
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  }
+  const __ms = Math.round(performance.now() - __t0)
+  console.log(`[mw-timing] ${mode}=${__ms}ms path=${path} auth=${user ? '1' : '0'}`)
 
   // Routes that require being logged in
   const protectedPaths = ['/dashboard', '/community', '/settings', '/admin', '/semesters', '/courses', '/messages', '/profile']
@@ -43,7 +59,8 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // /admin requires owner or admin role (defense layer 1 — RLS is layer 2)
+  // /admin requires owner or admin role (defense layer 1 — RLS is layer 2).
+  // Note: user here came from getUser() (server-verified) — see hybrid block above.
   if (user && path.startsWith('/admin')) {
     const { data: profile } = await supabase
       .from('profiles')
