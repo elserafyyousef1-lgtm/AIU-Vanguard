@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
-import { Navbar } from '@/components/layout/Navbar'
+import { SiteNav } from '@/components/layout/SiteNav'
 import toast from 'react-hot-toast'
 import {
   Loader2, Shield, Search, ChevronDown, ChevronUp,
@@ -167,7 +167,7 @@ export default function PeoplePage() {
   if (loading || fetching) {
     return (
       <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}>
-        <Navbar />
+        <SiteNav active="/admin" />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: 'var(--t3)' }}>
           <Loader2 size={20} className="animate-spin" />
         </div>
@@ -179,7 +179,7 @@ export default function PeoplePage() {
   if (err) {
     return (
       <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}>
-        <Navbar />
+        <SiteNav active="/admin" />
         <main style={{ maxWidth: 1040, margin: '0 auto', padding: '40px 20px' }}>
           <div style={{ background: 'var(--s2)', border: '1px solid var(--br)', borderRadius: 14, padding: 26, color: 'var(--t2)', fontSize: 14 }}>
             {err}
@@ -194,7 +194,7 @@ export default function PeoplePage() {
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}>
-      <Navbar />
+      <SiteNav active="/admin" />
       <main style={{ maxWidth: 1040, margin: '0 auto', padding: '40px 20px 80px' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>

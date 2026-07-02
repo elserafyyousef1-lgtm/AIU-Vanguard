@@ -3,9 +3,8 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
-import { Navbar } from '@/components/layout/Navbar'
+import { SiteNav } from '@/components/layout/SiteNav'
 import { CourseClient } from '@/components/course/CourseClient'
-import { CommandPalette } from '@/components/ui/CommandPalette'
 import { SettingsPanel } from '@/components/ui/SettingsPanel'
 import { ScrollProgress } from '@/components/ui/ScrollProgress'
 import type { Course } from '@/types'
@@ -55,9 +54,9 @@ export default async function CoursePage({ params }: { params: { slug: string } 
   return (
     <>
       <ScrollProgress />
-      <Navbar />
+      <SiteNav />
       <CourseClient course={course} />
-      <CommandPalette />
+      {/* CommandPalette is rendered by SiteNav */}
       <SettingsPanel />
     </>
   )

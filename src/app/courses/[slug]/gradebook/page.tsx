@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
-import { Navbar } from '@/components/layout/Navbar'
+import { SiteNav } from '@/components/layout/SiteNav'
 import { letterGrade, letterColor } from '@/lib/grade-scale'
 import { CategoriesModal } from '@/components/course/CategoriesModal'
 import { Loader2, Download, Search, ArrowUpDown, SlidersHorizontal } from 'lucide-react'
@@ -94,18 +94,18 @@ export default function GradebookPage() {
   }
 
   if (loading || authLoading) {
-    return <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}><Navbar /><div style={{ display: 'flex', justifyContent: 'center', padding: 80, color: 'var(--t3)' }}><Loader2 className="animate-spin" /></div></div>
+    return <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}><SiteNav /><div style={{ display: 'flex', justifyContent: 'center', padding: 80, color: 'var(--t3)' }}><Loader2 className="animate-spin" /></div></div>
   }
   if (!course) {
-    return <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}><Navbar /><main style={{ maxWidth: 760, margin: '0 auto', padding: 40, color: 'var(--t2)' }}>This course isn’t set up yet.</main></div>
+    return <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}><SiteNav /><main style={{ maxWidth: 760, margin: '0 auto', padding: 40, color: 'var(--t2)' }}>This course isn’t set up yet.</main></div>
   }
   if (!canManage) {
-    return <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}><Navbar /><main style={{ maxWidth: 760, margin: '0 auto', padding: 40, color: 'var(--t2)' }}>The gradebook is available to course staff only.</main></div>
+    return <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}><SiteNav /><main style={{ maxWidth: 760, margin: '0 auto', padding: 40, color: 'var(--t2)' }}>The gradebook is available to course staff only.</main></div>
   }
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}>
-      <Navbar />
+      <SiteNav />
       <main style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 20px 80px' }}>
         <div style={{ marginBottom: 18 }}>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: course.color, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>{course.code} · Gradebook</div>

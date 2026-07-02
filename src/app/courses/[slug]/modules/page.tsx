@@ -11,7 +11,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
-import { Navbar } from '@/components/layout/Navbar'
+import { SiteNav } from '@/components/layout/SiteNav'
 import { COURSES } from '@/lib/data/courses'
 import toast from 'react-hot-toast'
 import {
@@ -198,7 +198,7 @@ export default function CourseModulesPage() {
   if (loading || authLoading) {
     return (
       <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}>
-        <Navbar />
+        <SiteNav />
         <div style={{ display: 'flex', justifyContent: 'center', padding: 80, color: 'var(--t3)' }}><Loader2 className="animate-spin" /></div>
       </div>
     )
@@ -207,7 +207,7 @@ export default function CourseModulesPage() {
   if (!course) {
     return (
       <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}>
-        <Navbar />
+        <SiteNav />
         <main style={{ maxWidth: 760, margin: '0 auto', padding: 40, color: 'var(--t2)' }}>This course isn’t set up yet.</main>
       </div>
     )
@@ -215,7 +215,7 @@ export default function CourseModulesPage() {
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}>
-      <Navbar />
+      <SiteNav />
       <main style={{ maxWidth: 860, margin: '0 auto', padding: '32px 20px 80px' }}>
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: meta?.color || 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>{course.code} · Modules</div>

@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
-import { Navbar } from '@/components/layout/Navbar'
+import { SiteNav } from '@/components/layout/SiteNav'
 import toast from 'react-hot-toast'
 import { Plus, Pencil, Trash2, Loader2, Clock, FileText, Eye, EyeOff, CheckCircle2, AlertTriangle, Award, Upload, ClipboardCheck } from 'lucide-react'
 import { AssignmentModal, type AssignmentRow } from '@/components/course/AssignmentModal'
@@ -76,15 +76,15 @@ export default function CourseAssignmentsPage() {
   const catName = (id?: string | null) => categories.find(c => c.id === id)?.name
 
   if (loading || authLoading) {
-    return <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}><Navbar /><div style={{ display: 'flex', justifyContent: 'center', padding: 80, color: 'var(--t3)' }}><Loader2 className="animate-spin" /></div></div>
+    return <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}><SiteNav /><div style={{ display: 'flex', justifyContent: 'center', padding: 80, color: 'var(--t3)' }}><Loader2 className="animate-spin" /></div></div>
   }
   if (!course) {
-    return <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}><Navbar /><main style={{ maxWidth: 760, margin: '0 auto', padding: 40, color: 'var(--t2)' }}>This course isn’t set up yet.</main></div>
+    return <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}><SiteNav /><main style={{ maxWidth: 760, margin: '0 auto', padding: 40, color: 'var(--t2)' }}>This course isn’t set up yet.</main></div>
   }
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}>
-      <Navbar />
+      <SiteNav />
       <main style={{ maxWidth: 860, margin: '0 auto', padding: '32px 20px 80px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 22, flexWrap: 'wrap' }}>
           <div>
