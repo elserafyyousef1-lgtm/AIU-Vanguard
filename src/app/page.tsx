@@ -2,6 +2,7 @@
 import { SiteNav } from '@/components/layout/SiteNav'
 import { HeroSection } from '@/components/layout/HeroSection'
 import { SemestersGrid } from '@/components/layout/SemestersGrid'
+import { HomeShowcase } from '@/components/layout/HomeShowcase'
 import { WelcomeModal } from '@/components/ui/WelcomeModal'
 import { SettingsPanel } from '@/components/ui/SettingsPanel'
 import { ScrollProgress } from '@/components/ui/ScrollProgress'
@@ -17,6 +18,8 @@ export default function HomePage() {
         <div id="semesters" style={{ scrollMarginTop: 80 }}>
           <SemestersGrid />
         </div>
+        {/* tech-stack marquees + the First Survivor portrait (from the design reference) */}
+        <HomeShowcase />
       </main>
       <footer className="text-center py-12 text-[var(--t3)] text-sm border-t border-[var(--br)] mt-24">
         <div className="flex items-center justify-center gap-2 mb-2">

@@ -345,6 +345,60 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.6; }
 }
 
 /* ═══════════════════════════════════════════════════════════
+   TECH STACK MARQUEE + FIRST SURVIVOR (ported from the design reference)
+═══════════════════════════════════════════════════════════ */
+.marquee { position: relative; overflow: hidden; padding: 8px 0;
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+.marquee-track { display: flex; gap: 14px; width: max-content; animation: slideLeft 38s linear infinite; }
+.marquee.rev .marquee-track { animation: slideRight 44s linear infinite; }
+.marquee:hover .marquee-track { animation-play-state: paused; }
+@keyframes slideLeft { to { transform: translateX(-50%); } }
+@keyframes slideRight { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+.tool { display: inline-flex; align-items: center; gap: 10px; flex-shrink: 0;
+  padding: 13px 22px; border-radius: 999px; background: var(--glass); backdrop-filter: blur(10px);
+  border: 1px solid var(--hair); font-family: var(--font-display); font-weight: 500; font-size: 14.5px; color: var(--t);
+  transition: border-color .25s, background .25s; white-space: nowrap; }
+.tool:hover { border-color: var(--crimson-line); background: var(--glass-bright); }
+.tool .ic { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; color: var(--accent-2); flex-shrink: 0; }
+.marquee-wrap { display: flex; flex-direction: column; gap: 14px; }
+
+.about-grid { display: grid; grid-template-columns: auto 1fr; gap: clamp(32px, 6vw, 72px); align-items: center; }
+.portrait { position: relative; width: clamp(260px, 32vw, 400px); aspect-ratio: 3/4.2; flex-shrink: 0;
+  border-radius: var(--r-xl); overflow: hidden; border: 1px solid var(--crimson-line);
+  box-shadow: 0 30px 90px rgba(0,0,0,.6), 0 0 60px var(--crimson-dim); }
+.portrait::after { content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 2;
+  background: linear-gradient(to top, rgba(8,8,10,.98) 14%, rgba(8,8,10,.7) 28%, transparent 48%),
+              radial-gradient(120% 80% at 50% 0%, transparent 55%, rgba(8,8,10,.4)); }
+.portrait img { width: 100%; height: 100%; object-fit: cover; object-position: center 12%;
+  filter: contrast(1.08) saturate(1.12) brightness(1.04); }
+.portrait .engrave { position: absolute; left: 0; right: 0; bottom: 22px; z-index: 3; text-align: center; pointer-events: none; }
+.portrait .engrave .name { font-family: var(--font-display); font-weight: 800; font-size: clamp(20px, 3vw, 30px);
+  letter-spacing: .42em; padding-left: .42em; color: var(--t); text-shadow: 0 2px 20px rgba(0,0,0,.8); line-height: 1; }
+.portrait .engrave .arise { font-family: var(--font-display); font-weight: 800; font-size: clamp(30px, 4.6vw, 48px);
+  letter-spacing: .34em; padding-left: .34em; margin-top: 6px; line-height: 1;
+  background: linear-gradient(180deg, var(--accent-2), var(--crimson-deep));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  filter: drop-shadow(0 2px 16px var(--crimson-glow)); }
+
+.about-name { font-family: var(--font-display); font-weight: 800; font-size: clamp(40px, 6vw, 72px); line-height: 1; letter-spacing: -.035em; color: var(--t); }
+.about-name .red { background: linear-gradient(120deg, var(--accent-2), var(--accent) 60%, var(--crimson-deep));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; filter: drop-shadow(0 0 30px var(--crimson-glow)); }
+.about-title { display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: .3em; text-transform: uppercase; color: var(--accent-2);
+  padding: 8px 16px; border: 1px solid var(--crimson-line); border-radius: 999px; background: var(--crimson-dim); }
+.about-creed { margin-top: 28px; max-width: 540px; }
+.about-creed p { color: var(--t2); font-size: 15px; line-height: 1.85; margin-bottom: 14px; }
+.about-creed .strong { color: var(--t); font-weight: 500; }
+.about-creed .finale { font-family: var(--font-display); font-weight: 700; font-size: clamp(19px, 2.4vw, 26px); letter-spacing: -.02em;
+  background: linear-gradient(120deg, var(--t), var(--accent-2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-top: 8px; }
+@media (max-width: 980px) {
+  .about-grid { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+  .about-creed { margin-left: auto; margin-right: auto; }
+}
+
+/* ═══════════════════════════════════════════════════════════
    BASE RESET
 ═══════════════════════════════════════════════════════════ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
