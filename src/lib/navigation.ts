@@ -10,28 +10,32 @@
 
 export interface NavLink { href: string; label: string }
 
-// "Courses" → /semesters/4 keeps the current hardcoded-semester pattern (to be made
-// dynamic later). Kept here so every consumer agrees on the target.
-export const COURSES_HREF = '/semesters/4'
+// "Courses" targets the STUDENT'S OWN semester when known; 4 is the fallback for guests
+// and profiles without a semester set.
+export const DEFAULT_SEMESTER = 4
+export const COURSES_HREF = `/semesters/${DEFAULT_SEMESTER}`
+export function coursesHref(semester?: number | null): string {
+  return `/semesters/${semester || DEFAULT_SEMESTER}`
+}
 
-const AUTHED_MAIN: NavLink[] = [
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: COURSES_HREF, label: 'Courses' },
-  { href: '/community', label: 'Community' },
-  { href: '/messages', label: 'Messages' },
-]
 const ADMIN_LINK: NavLink = { href: '/admin', label: 'Admin' }
 
-const GUEST_MAIN: NavLink[] = [
-  { href: '/', label: 'Home' },
-  { href: COURSES_HREF, label: 'Courses' },
-  { href: '/community', label: 'Community' },
-]
-
-// Main (top-bar) links — role-aware.
-export function mainNavLinks(authed: boolean, isAdmin: boolean): NavLink[] {
-  if (!authed) return GUEST_MAIN
-  return isAdmin ? [...AUTHED_MAIN, ADMIN_LINK] : AUTHED_MAIN
+// Main (top-bar) links — role-aware + semester-aware.
+export function mainNavLinks(authed: boolean, isAdmin: boolean, semester?: number | null): NavLink[] {
+  if (!authed) {
+    return [
+      { href: '/', label: 'Home' },
+      { href: COURSES_HREF, label: 'Courses' },
+      { href: '/community', label: 'Community' },
+    ]
+  }
+  const main: NavLink[] = [
+    { href: '/dashboard', label: 'Dashboard' },
+    { href: coursesHref(semester), label: 'Courses' },
+    { href: '/community', label: 'Community' },
+    { href: '/messages', label: 'Messages' },
+  ]
+  return isAdmin ? [...main, ADMIN_LINK] : main
 }
 
 // Account links (avatar dropdown / drawer footer), in order. Log out is rendered
@@ -60,7 +64,7 @@ export function accountLinks(userId?: string): NavLink[] {
 //   Removal trigger: once SiteNav is a single root-layout instance it no longer re-mounts
 //   per navigation → no guest-flicker → DELETE the snapshot (and the per-page wiring).
 // ───────────────────────────────────────────────────────────
-export interface NavUser { id?: string; name: string; role?: string; avatarUrl?: string | null }
+export interface NavUser { id?: string; name: string; role?: string; avatarUrl?: string | null; semester?: number | null }
 
 let snapshot: { user: NavUser; isAdmin: boolean } | null = null
 

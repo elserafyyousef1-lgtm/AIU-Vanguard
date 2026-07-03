@@ -45,7 +45,7 @@ export default function MessagesPage() {
 
   const handleLogout = async () => { await supabase.auth.signOut(); toast.success('Logged out'); router.push('/'); router.refresh() }
   const navUser = (!authLoading && userId)
-    ? { id: userId, name: (profile as any)?.full_name || 'User', role: roleLabel(role ?? undefined), avatarUrl: (profile as any)?.avatar_url ?? null }
+    ? { id: userId, name: (profile as any)?.full_name || 'User', role: roleLabel(role ?? undefined), avatarUrl: (profile as any)?.avatar_url ?? null, semester: (profile as any)?.semester ?? null }
     : null
   const navProps = { active: '/messages', user: navUser, isAdmin, loading: authLoading, onLogout: handleLogout }
 

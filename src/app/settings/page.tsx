@@ -19,6 +19,7 @@ export default function SettingsPage() {
   const [contactEmail, setContactEmail] = useState('')
   const [role, setRole] = useState<string | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [semester, setSemester] = useState<number | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -27,13 +28,14 @@ export default function SettingsPage() {
       setUserId(user.id)
       const { data } = await supabase
         .from('profiles')
-        .select('full_name, nickname, role, avatar_url')
+        .select('full_name, nickname, role, avatar_url, semester')
         .eq('id', user.id)
         .single()
       setFullName(data?.full_name || '')
       setNickname(data?.nickname || '')
       setRole((data as any)?.role || null)
       setAvatarUrl((data as any)?.avatar_url || null)
+      setSemester((data as any)?.semester ?? null)
       // Contact info lives in the locked user_private table — read via secure RPC.
       const { data: contact } = await supabase.rpc('my_contact')
       const c = Array.isArray(contact) ? contact[0] : contact
@@ -91,7 +93,7 @@ export default function SettingsPage() {
 
   const handleLogout = async () => { await supabase.auth.signOut(); toast.success('Logged out'); router.push('/'); router.refresh() }
   const navUser = (!loading && userId)
-    ? { id: userId, name: fullName || 'User', role: role ? role[0].toUpperCase() + role.slice(1) : undefined, avatarUrl }
+    ? { id: userId, name: fullName || 'User', role: role ? role[0].toUpperCase() + role.slice(1) : undefined, avatarUrl, semester }
     : null
   const navProps = { active: '/settings', user: navUser, isAdmin: role === 'owner' || role === 'admin', loading, onLogout: handleLogout }
 

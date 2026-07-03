@@ -184,6 +184,7 @@ export default function SemesterPage() {
         name: (profile as any)?.full_name || 'Student',
         role: role ? role[0].toUpperCase() + role.slice(1) : undefined,
         avatarUrl: (profile as any)?.avatar_url ?? null,
+        semester: (profile as any)?.semester ?? null,
       }
     : null
 

@@ -309,7 +309,7 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
 
   const handleLogout = async () => { await supabase.auth.signOut(); toast.success('Logged out'); router.push('/'); router.refresh() }
   const navUser = (!authLoading && userId)
-    ? { id: userId, name: (myProfile as any)?.full_name || 'User', role: role ? role[0].toUpperCase() + role.slice(1) : undefined, avatarUrl: (myProfile as any)?.avatar_url ?? null }
+    ? { id: userId, name: (myProfile as any)?.full_name || 'User', role: role ? role[0].toUpperCase() + role.slice(1) : undefined, avatarUrl: (myProfile as any)?.avatar_url ?? null, semester: (myProfile as any)?.semester ?? null }
     : null
 
   return (

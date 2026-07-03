@@ -23,7 +23,7 @@ import {
   setNavAuthSnapshot, getNavAuthSnapshot, clearNavAuthSnapshot, type NavUser,
 } from '@/lib/navigation'
 
-export interface SiteNavUser { id?: string; name: string; role?: string; avatarUrl?: string | null }
+export interface SiteNavUser { id?: string; name: string; role?: string; avatarUrl?: string | null; semester?: number | null }
 
 export function SiteNavView({ active, user, isAdmin = false, loading, onLogout }: {
   active?: string
@@ -52,10 +52,13 @@ export function SiteNavView({ active, user, isAdmin = false, loading, onLogout }
   const effUser: NavUser | null = user ?? (resolvedNoUser ? null : snap?.user ?? null)
   const effAdmin = user ? isAdmin : (resolvedNoUser ? false : (snap?.isAdmin ?? false))
   const authed = !!effUser
-  const links = mainNavLinks(authed, effAdmin)
+  const links = mainNavLinks(authed, effAdmin, effUser?.semester)
   const account = accountLinks(effUser?.id)
   const initial = (effUser?.name || 'U').trim()[0]?.toUpperCase() || 'U'
   const handleLogout = () => { clearNavAuthSnapshot(); onLogout?.() }
+  // "Courses" highlights on ANY /semesters/* page (your semester or another one).
+  const isOn = (href: string) =>
+    active === href || (href.startsWith('/semesters/') && !!active?.startsWith('/semesters/'))
 
   // Ctrl/Cmd+K opens the command palette.
   useEffect(() => {
@@ -87,7 +90,7 @@ export function SiteNavView({ active, user, isAdmin = false, loading, onLogout }
         {/* Main links (desktop inline) */}
         <div className="sitenav-links">
           {links.map(l => (
-            <Link key={l.href} href={l.href} prefetch={false} className={`topnav-link ${active === l.href ? 'on' : ''}`} aria-current={active === l.href ? 'page' : undefined}>
+            <Link key={l.href} href={l.href} prefetch={false} className={`topnav-link ${isOn(l.href) ? 'on' : ''}`} aria-current={isOn(l.href) ? 'page' : undefined}>
               {l.label}
             </Link>
           ))}
@@ -141,7 +144,7 @@ export function SiteNavView({ active, user, isAdmin = false, loading, onLogout }
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {links.map(l => (
-              <Link key={l.href} href={l.href} prefetch={false} onClick={() => setDrawer(false)} className={`side-link ${active === l.href ? 'on' : ''}`}>
+              <Link key={l.href} href={l.href} prefetch={false} onClick={() => setDrawer(false)} className={`side-link ${isOn(l.href) ? 'on' : ''}`}>
                 {l.label}
               </Link>
             ))}

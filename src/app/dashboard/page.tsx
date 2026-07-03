@@ -112,7 +112,7 @@ export default function DashboardPage() {
     <>
       <SiteNavView
         active="/dashboard"
-        user={{ id: user.id, name: twoNames(fullName), role: badge.label, avatarUrl: profile?.avatar_url }}
+        user={{ id: user.id, name: twoNames(fullName), role: badge.label, avatarUrl: profile?.avatar_url, semester: profile?.semester ?? null }}
         isAdmin={isAdmin}
         onLogout={handleLogout}
       />
