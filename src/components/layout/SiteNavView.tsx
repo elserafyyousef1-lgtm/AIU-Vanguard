@@ -15,6 +15,7 @@ import { useUIStore, useUserStore } from '@/lib/store'
 import { OnlineCounter } from '@/components/ui/OnlineCounter'
 import { NotificationBell } from '@/components/ui/NotificationBell'
 import { CommandPalette } from '@/components/ui/CommandPalette'
+import { VanguardAI } from '@/components/ai/VanguardAI'
 import { Dropdown } from '@/components/ui/Dropdown'
 import { Button } from '@/components/ui/Button'
 import { MobileDrawer } from './MobileDrawer'
@@ -104,6 +105,7 @@ export function SiteNavView({ active, user, isAdmin = false, loading, onLogout }
             </button>
           )}
           <div className="sitenav-online"><span className="dot" /><OnlineCounter /></div>
+          {authed && <VanguardAI />}
           {authed && <NotificationBell />}
           <button className="sitenav-icon" onClick={toggleTheme} title="Toggle theme" aria-label="Toggle theme">
             {settings.theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
