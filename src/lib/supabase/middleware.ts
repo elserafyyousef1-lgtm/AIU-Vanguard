@@ -34,19 +34,14 @@ export async function updateSession(request: NextRequest) {
   //   1. /admin — privileged area gate stays server-validated on every hit.
   //   2. Sessions close to expiry — forces the token refresh that keeps the session alive
   //      (the reason middleware used to call getUser() on every request).
-  const __t0 = performance.now()
   const { data: { session } } = await supabase.auth.getSession()
   let user = session?.user ?? null
-  let mode = 'session'
 
   const nearExpiry = !!session && ((session.expires_at ?? 0) - Math.floor(Date.now() / 1000) < 120)
   if ((user && path.startsWith('/admin')) || nearExpiry) {
-    mode = nearExpiry ? 'user(refresh)' : 'user(admin)'
     const { data } = await supabase.auth.getUser()
     user = data.user
   }
-  const __ms = Math.round(performance.now() - __t0)
-  console.log(`[mw-timing] ${mode}=${__ms}ms path=${path} auth=${user ? '1' : '0'}`)
 
   // Routes that require being logged in
   const protectedPaths = ['/dashboard', '/community', '/settings', '/admin', '/semesters', '/courses', '/messages', '/profile']
