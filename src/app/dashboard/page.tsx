@@ -53,6 +53,8 @@ export default function DashboardPage() {
         .select('id, full_name, role, avatar_url, semester, settings, created_at, updated_at, bio, rep_course, linkedin, bio_images, github, certificates, nickname')
         .eq('id', user.id).single()
       const { data: contact } = await supabase.rpc('my_contact')
+      // Google signups have no university ID yet — collect it once before continuing.
+      if (!contact?.[0]?.student_id) { router.push('/onboarding'); return }
       setProfile({ ...(profileData as any), ...(contact?.[0] || {}) })
       setLoading(false)
     }
