@@ -146,5 +146,6 @@ export interface UserSettings {
   sound: boolean
   animations: boolean
   language: 'ar' | 'en' | 'both'
-  notifications: boolean
+  notifications: boolean       // in-app: bell + sound while the site is open
+  emailNotifications: boolean  // email while offline (important events only)
 }

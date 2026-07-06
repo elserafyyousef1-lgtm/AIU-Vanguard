@@ -25,6 +25,7 @@ export const useUserStore = create<UserState>()(
         animations: true,
         language: 'both',
         notifications: true,
+        emailNotifications: true,
       },
       setProfile: (profile) => set({ profile }),
       updateSettings: (s) => {

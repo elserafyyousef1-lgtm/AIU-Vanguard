@@ -1,7 +1,7 @@
 'use client'
 // src/components/ui/SettingsPanel.tsx
 import { useUIStore, useUserStore } from '@/lib/store'
-import { X, Moon, Sun, Volume2, VolumeX, Zap, ZapOff, Bell, BellOff } from 'lucide-react'
+import { X, Moon, Sun, Volume2, VolumeX, Zap, ZapOff, Bell, BellOff, Mail, MailX } from 'lucide-react'
 
 export function SettingsPanel() {
   const { settingsOpen, setSettingsOpen } = useUIStore()
@@ -44,13 +44,21 @@ export function SettingsPanel() {
             active={settings.theme === 'dark'}
             onToggle={() => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })}
           />
-          {/* Notifications */}
+          {/* Notifications (in-app) */}
           <SettingRow
             label="Notifications"
-            desc="Sound alerts for new activity"
+            desc="Bell & sound while you're on the site"
             icon={settings.notifications ? Bell : BellOff}
             active={settings.notifications}
             onToggle={() => updateSettings({ notifications: !settings.notifications })}
+          />
+          {/* Email notifications (offline) */}
+          <SettingRow
+            label="Email notifications"
+            desc="Emails for messages, grades & course updates when you're offline"
+            icon={settings.emailNotifications !== false ? Mail : MailX}
+            active={settings.emailNotifications !== false}
+            onToggle={() => updateSettings({ emailNotifications: !(settings.emailNotifications !== false) })}
           />
           {/* Sound */}
           <SettingRow
