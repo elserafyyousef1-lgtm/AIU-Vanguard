@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { SiteNavView } from '@/components/layout/SiteNavView'
 import toast from 'react-hot-toast'
-import { Loader2, User, Phone, Mail, AtSign, Save } from 'lucide-react'
+import { Loader2, User, Phone, Mail, AtSign, Save, Bell, Volume2 } from 'lucide-react'
+import { useUserStore } from '@/lib/store'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -20,6 +21,7 @@ export default function SettingsPage() {
   const [role, setRole] = useState<string | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [semester, setSemester] = useState<number | null>(null)
+  const { settings, updateSettings } = useUserStore()
 
   useEffect(() => {
     const load = async () => {
@@ -91,6 +93,20 @@ export default function SettingsPage() {
     </div>
   )
 
+  // Toggle row — settings persist instantly (updateSettings writes to profiles.settings).
+  const toggleRow = (label: string, desc: string, icon: any, on: boolean, onToggle: () => void) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0' }}>
+      <span style={{ width: 34, height: 34, borderRadius: 10, background: 'var(--s3)', border: '1px solid var(--br)', color: on ? 'var(--accent)' : 'var(--t3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{icon}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--t)' }}>{label}</div>
+        <div style={{ fontSize: 12, color: 'var(--t3)', lineHeight: 1.4 }}>{desc}</div>
+      </div>
+      <button onClick={onToggle} aria-pressed={on} aria-label={label} style={{ width: 44, height: 26, borderRadius: 999, border: 'none', cursor: 'pointer', flexShrink: 0, background: on ? 'var(--accent)' : 'var(--s4)', position: 'relative', transition: 'background .2s' }}>
+        <span style={{ position: 'absolute', top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left .2s' }} />
+      </button>
+    </div>
+  )
+
   const handleLogout = async () => { await supabase.auth.signOut(); toast.success('Logged out'); router.push('/'); router.refresh() }
   const navUser = (!loading && userId)
     ? { id: userId, name: fullName || 'User', role: role ? role[0].toUpperCase() + role.slice(1) : undefined, avatarUrl, semester }
@@ -126,6 +142,17 @@ export default function SettingsPage() {
           <p style={{ fontSize: 12.5, color: 'var(--t3)', marginBottom: 18 }}>Private — visible only to you.</p>
           {field('Phone', <Phone size={13} />, phone, setPhone, '+20 1X XXX XXXX')}
           {field('Email', <Mail size={13} />, contactEmail, setContactEmail, 'you@gmail.com')}
+        </section>
+
+        <section style={{ background: 'var(--s2)', border: '1px solid var(--br)', borderRadius: 16, padding: '14px 22px', marginBottom: 22 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--t)', margin: '8px 0 2px' }}>Notifications</h2>
+          <p style={{ fontSize: 12.5, color: 'var(--t3)', marginBottom: 6 }}>Saved instantly.</p>
+          {toggleRow('In-app alerts', "Bell & sound while you're on the site", <Bell size={15} />,
+            settings.notifications !== false, () => updateSettings({ notifications: !(settings.notifications !== false) }))}
+          {toggleRow('Sound', 'Play a sound for new activity', <Volume2 size={15} />,
+            settings.sound !== false, () => updateSettings({ sound: !(settings.sound !== false) }))}
+          {toggleRow('Email notifications', "Emails for messages, grades & course updates when you're offline", <Mail size={15} />,
+            settings.emailNotifications !== false, () => updateSettings({ emailNotifications: !(settings.emailNotifications !== false) }))}
         </section>
 
         <button
