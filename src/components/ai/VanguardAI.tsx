@@ -5,6 +5,7 @@
 // context comes from a small picker (AI-enabled courses from the DB) and the last choice
 // is remembered for the tab (uiStore.aiCourse). Course pages keep their own button too.
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Sparkles, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useUIStore } from '@/lib/store'
@@ -17,6 +18,11 @@ export function VanguardAI() {
   const { aiOpen, aiCourse, openAI, closeAI } = useUIStore()
   const [picker, setPicker] = useState(false)
   const [courses, setCourses] = useState<AICourse[] | null>(null)
+  // The launcher lives inside .sitenav, which has backdrop-filter — that makes the nav the
+  // containing block for position:fixed children (the panel rendered pinned inside the 64px
+  // bar: unusable). Portal the overlays to <body> so they position against the real viewport.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
 
   // AI-enabled courses (fetched once, on first use)
   const loadCourses = async (): Promise<AICourse[]> => {
@@ -53,8 +59,8 @@ export function VanguardAI() {
         <Sparkles size={15} />
       </button>
 
-      {/* Course picker */}
-      {picker && (
+      {/* Course picker (portaled to <body> — see note above) */}
+      {mounted && picker && createPortal(
         <div
           onClick={e => e.target === e.currentTarget && setPicker(false)}
           style={{ position: 'fixed', inset: 0, zIndex: Z.modal, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
@@ -81,11 +87,15 @@ export function VanguardAI() {
               </button>
             ))}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* The panel itself (self-positioned fixed overlay) */}
-      {aiOpen && aiCourse && <AIPanel courseSlug={aiCourse} onClose={closeAI} />}
+      {/* The panel itself (portaled — its fixed overlay must anchor to the viewport, not the nav) */}
+      {mounted && aiOpen && aiCourse && createPortal(
+        <AIPanel courseSlug={aiCourse} onClose={closeAI} />,
+        document.body
+      )}
     </>
   )
 }
