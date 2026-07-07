@@ -2,6 +2,8 @@
 // src/components/course/LecturesTab.tsx
 import { useState } from 'react'
 import type { Lecture, Course } from '@/types'
+import { AIE121_HTML } from '@/lib/data/aie121_sheets'
+import 'katex/dist/katex.min.css'  // styles the pre-rendered KaTeX HTML in the AIE121 sheets
 
 // ─── Raw HTML lecture content extracted directly from source files ───────────
 
@@ -258,11 +260,18 @@ const LECTURE_NAMES: Record<string, Record<number, string>> = {
     7:'Laplace Transforms', 8:'Inverse Laplace & Fourier',
     9:'Power Series',
   },
+  AIE121: {
+    1:'Accuracy Metrics', 2:'Linear Regression', 3:'Decision Trees (ID3)',
+    4:'AdaBoost', 5:'Naïve Bayes', 6:'Logistic Regression',
+    7:'Support Vector Machine', 8:'K-Nearest Neighbors', 9:'K-Means Clustering',
+  },
 }
 
 export function LecturesTab({ lectures, course }: Props) {
   const [active, setActive] = useState(1)
-  const htmlMap = course.slug === 'CSE221' ? CSE221_HTML : MAT312_OVERVIEWS
+  const htmlMap = course.slug === 'CSE221' ? CSE221_HTML
+    : course.slug === 'AIE121' ? AIE121_HTML
+    : MAT312_OVERVIEWS
   const nameMap = LECTURE_NAMES[course.slug] || {}
 
   return (
@@ -338,6 +347,12 @@ export function LecturesTab({ lectures, course }: Props) {
         .lec-tip strong { color:var(--accent); }
         .lec-rule { background:var(--s3); border-left:3px solid var(--accent); padding:10px 14px; border-radius:0 8px 8px 0; font-size:13px; color:var(--t2); margin:10px 0; line-height:1.55; }
         .lec-sub-label { font-family:var(--font-mono); font-size:10px; color:var(--accent); text-transform:uppercase; letter-spacing:.1em; margin-bottom:8px; }
+        .lec-fbox { background:var(--s3); border:1px solid var(--br2); border-radius:10px; padding:12px 14px; margin:10px 0; overflow-x:auto; }
+        .lec-flbl { font-family:var(--font-mono); font-size:10px; color:var(--accent-2); text-transform:uppercase; letter-spacing:.1em; margin-bottom:8px; }
+        .lec-content .ok { background:rgba(61,214,140,.08); border:1px solid rgba(61,214,140,.25); border-radius:10px; padding:10px 14px; margin:10px 0; color:var(--t2); overflow-x:auto; }
+        .lec-content .ok strong { color:#3dd68c; }
+        .lec-content .katex { font-size:1.02em; }
+        .lec-content .katex-display { margin:.7rem 0; overflow-x:auto; overflow-y:hidden; padding:2px 0; }
         .lec-code { font-family:var(--font-mono); font-size:14px; background:var(--s3); border:1px solid var(--br); border-radius:8px; padding:10px 14px; color:var(--t2); }
         .lec-pre { background:var(--s3); border:1px solid var(--br); border-radius:8px; padding:12px 14px; font-family:var(--font-mono); font-size:12px; color:var(--t2); overflow-x:auto; line-height:1.7; white-space:pre; }
       `}</style>

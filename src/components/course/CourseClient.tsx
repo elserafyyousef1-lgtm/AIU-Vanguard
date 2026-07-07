@@ -7,6 +7,7 @@ import { useState } from 'react'
 import type { Course } from '@/types'
 import { CSE221_LECTURES, CSE221_QUESTIONS, CSE221_QUICK_CHIPS } from '@/lib/data/cse221'
 import { MAT312_LECTURES, MAT312_QUESTIONS, MAT312_FLASHCARDS } from '@/lib/data/mat312'
+import { AIE121_LECTURES, AIE121_QUESTIONS, AIE121_FLASHCARDS, AIE121_QUICK_CHIPS } from '@/lib/data/aie121'
 import { LecturesTab } from './LecturesTab'
 import { ExamTab } from './ExamTab'
 import { FlashcardsTab } from './FlashcardsTab'
@@ -30,6 +31,11 @@ const LEGACY_TABS: Record<string, Tab[]> = {
     { id: 'flashcards', label: 'Flashcards', icon: CreditCard },
     { id: 'formulas', label: 'Formula Sheet', icon: Calculator },
   ],
+  AIE121: [
+    { id: 'lectures', label: 'Study Sheets', icon: BookOpen },
+    { id: 'exam', label: 'Final Exam (102Q)', icon: FileQuestion },
+    { id: 'flashcards', label: 'Flashcards', icon: CreditCard },
+  ],
 }
 
 export function CourseClient({ course }: Props) {
@@ -45,14 +51,17 @@ export function CourseClient({ course }: Props) {
 
   const isCSE221 = course.slug === 'CSE221'
   const isMAT312 = course.slug === 'MAT312'
-  const lectures = isCSE221 ? CSE221_LECTURES : MAT312_LECTURES
-  const questions = isCSE221 ? CSE221_QUESTIONS : MAT312_QUESTIONS
+  const isAIE121 = course.slug === 'AIE121'
+  const lectures = isCSE221 ? CSE221_LECTURES : isAIE121 ? AIE121_LECTURES : MAT312_LECTURES
+  const questions = isCSE221 ? CSE221_QUESTIONS : isAIE121 ? AIE121_QUESTIONS : MAT312_QUESTIONS
 
   // Stats: real counts for legacy courses; AI/formula badges for the rest.
   const legacyCounts = isCSE221
     ? [{ v: CSE221_LECTURES.length, l: 'Lectures' }, { v: CSE221_QUESTIONS.length, l: "Exam Q's" }]
     : isMAT312
     ? [{ v: MAT312_LECTURES.length, l: 'Lectures' }, { v: MAT312_QUESTIONS.length, l: "Exam Q's" }, { v: MAT312_FLASHCARDS.length, l: 'Flashcards' }]
+    : isAIE121
+    ? [{ v: AIE121_LECTURES.length, l: 'Lectures' }, { v: AIE121_QUESTIONS.length, l: "Exam Q's" }, { v: AIE121_FLASHCARDS.length, l: 'Flashcards' }]
     : []
   const stats = [
     ...legacyCounts,
@@ -156,9 +165,9 @@ export function CourseClient({ course }: Props) {
 
         {/* Tab content */}
         <div className="anim-3">
-          {(isCSE221 || isMAT312) && activeTab === 'lectures' && <LecturesTab lectures={lectures} course={course} />}
-          {(isCSE221 || isMAT312) && activeTab === 'exam' && <ExamTab questions={questions} course={course} />}
-          {isMAT312 && activeTab === 'flashcards' && <FlashcardsTab cards={MAT312_FLASHCARDS} />}
+          {(isCSE221 || isMAT312 || isAIE121) && activeTab === 'lectures' && <LecturesTab lectures={lectures} course={course} />}
+          {(isCSE221 || isMAT312 || isAIE121) && activeTab === 'exam' && <ExamTab questions={questions} course={course} />}
+          {(isMAT312 || isAIE121) && activeTab === 'flashcards' && <FlashcardsTab cards={isAIE121 ? AIE121_FLASHCARDS : MAT312_FLASHCARDS} />}
           {isMAT312 && activeTab === 'formulas' && <FormulaSheetPlaceholder />}
           {legacyTabs.length === 0 && <CourseOverview course={course} />}
         </div>
@@ -169,7 +178,7 @@ export function CourseClient({ course }: Props) {
         <AIPanel
           courseSlug={course.slug}
           onClose={() => setAiOpen(false)}
-          quickChips={isCSE221 ? CSE221_QUICK_CHIPS : []}
+          quickChips={isCSE221 ? CSE221_QUICK_CHIPS : isAIE121 ? AIE121_QUICK_CHIPS : []}
         />
       )}
     </>

@@ -19,6 +19,7 @@ export type CourseSlug =
   | 'MAT312'  // Differential Equations
   | 'CSE301'  // Machine Learning
   | 'CSE311'  // Computer Architecture
+  | 'AIE121'  // Machine Learning (Study Lab)
 
 export interface Course {
   slug: string
