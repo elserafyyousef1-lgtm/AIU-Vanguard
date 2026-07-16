@@ -40,6 +40,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'course, title and fileUrl are required.' }, { status: 400 })
   }
 
+  // SSRF guard: fileUrl is fetched server-side, so it must point ONLY at our Supabase
+  // storage (where legit uploads live). Without this a staff-level account could make the
+  // server fetch internal/metadata endpoints (e.g. 169.254.169.254). Legit uploads always
+  // produce a https://<project>.supabase.co/storage/... URL, so this changes no real flow.
+  const SUPABASE_HOST = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || '').host
+  let parsedUrl: URL
+  try { parsedUrl = new URL(fileUrl) } catch { return NextResponse.json({ error: 'Invalid fileUrl.' }, { status: 400 }) }
+  if (parsedUrl.protocol !== 'https:' || parsedUrl.host !== SUPABASE_HOST || !parsedUrl.pathname.startsWith('/storage/')) {
+    return NextResponse.json({ error: 'fileUrl must be an uploaded course-materials file.' }, { status: 400 })
+  }
+
   // 1) Record the document as "processing".
   const { data: doc, error: docErr } = await supabase
     .from('course_documents')

@@ -5,7 +5,7 @@
 import { useParams } from 'next/navigation'
 import { CommunityView } from '@/components/community/CommunityView'
 
-const VALID = ['CSE221', 'MAT312', 'CSE301', 'CSE311']
+const VALID = ['CSE221', 'MAT312', 'AIE121', 'CSE311']
 
 export default function CourseCommunityPage() {
   const params = useParams()

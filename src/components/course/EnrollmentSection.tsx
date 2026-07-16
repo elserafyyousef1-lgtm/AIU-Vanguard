@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 import { BookOpen, Lock, Clock, CheckCircle2, MessageSquare, Loader2 } from 'lucide-react'
 
-const COURSES = ['CSE221', 'MAT312', 'CSE301', 'CSE311']
+const COURSES = ['CSE221', 'MAT312', 'AIE121', 'CSE311']
 
 interface Enrollment { id: string; course: string; enrolled_at: string; completed: boolean }
 

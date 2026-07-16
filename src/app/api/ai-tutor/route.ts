@@ -29,7 +29,10 @@ function checkRateLimit(ip: string): boolean {
   return true
 }
 
-const GEMINI_MODEL = 'gemini-flash-latest'
+// Pinned to a specific fast model. The `gemini-flash-latest` alias was silently repointed
+// by Google to gemini-3.5-flash, which "thinks" by default and took 30–50s per reply.
+// gemini-2.5-flash answers in ~3s and is pinned so an alias change can't slow us down again.
+const GEMINI_MODEL = 'gemini-2.5-flash'
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`
 
 export async function POST(req: NextRequest) {

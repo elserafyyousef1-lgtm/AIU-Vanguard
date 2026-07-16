@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { X, Send, Sparkles, Copy, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { CSE221_AI_PROMPT } from '@/lib/data/cse221'
+import { MAT312_AI_PROMPT } from '@/lib/data/mat312'
 import { AIE121_AI_PROMPT } from '@/lib/data/aie121'
 import { buildSystemPrompt } from '@/lib/data/aiPersona'
 import { COURSES } from '@/lib/data/courses'
@@ -45,7 +46,8 @@ export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
 
   const courseKnowledge = courseSlug === 'CSE221' ? CSE221_AI_PROMPT
     : courseSlug === 'AIE121' ? AIE121_AI_PROMPT
-    : `This is MAT312 Differential Equations at Alamein International University. Topics: separable equations, linear 1st-order, Bernoulli, exact equations, 2nd-order with constant coefficients, Cauchy-Euler, Laplace transforms, Fourier series, and power series. Provide clean step-by-step solutions with worked examples.`
+    : courseSlug === 'MAT312' ? MAT312_AI_PROMPT
+    : `This is a course at Alamein International University. Provide clean step-by-step help with worked examples.`
 
   const courseInfo = COURSES[courseSlug]
   const systemPrompt = buildSystemPrompt(courseKnowledge, {

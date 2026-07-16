@@ -6,7 +6,7 @@
 // is remembered for the tab (uiStore.aiCourse). Course pages keep their own button too.
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Sparkles, X } from 'lucide-react'
+import { Sparkles, X, Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useUIStore } from '@/lib/store'
 import { AIPanel } from './AIPanel'
@@ -17,6 +17,7 @@ interface AICourse { code: string; title: string }
 export function VanguardAI() {
   const { aiOpen, aiCourse, openAI, closeAI } = useUIStore()
   const [picker, setPicker] = useState(false)
+  const [query, setQuery] = useState('')
   const [courses, setCourses] = useState<AICourse[] | null>(null)
   // The launcher lives inside .sitenav, which has backdrop-filter — that makes the nav the
   // containing block for position:fixed children (the panel rendered pinned inside the 64px
@@ -51,6 +52,9 @@ export function VanguardAI() {
     return () => window.removeEventListener('keydown', h)
   }, [picker])
 
+  // Reset the search box every time the picker closes
+  useEffect(() => { if (!picker) setQuery('') }, [picker])
+
   return (
     <>
       {/* Launcher (rendered inside the nav's util cluster) */}
@@ -73,19 +77,59 @@ export function VanguardAI() {
               <button onClick={() => setPicker(false)} aria-label="Close" style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--s3)', border: 'none', color: 'var(--t2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={13} /></button>
             </div>
             <p style={{ fontSize: 13, color: 'var(--t3)', marginBottom: 14 }}>Which course do you want to study?</p>
-            {(courses || []).length === 0 ? (
-              <p style={{ color: 'var(--t3)', fontSize: 13.5, padding: '8px 0' }}>No AI-enabled courses yet.</p>
-            ) : (courses || []).map(c => (
-              <button key={c.code} onClick={() => { setPicker(false); openAI(c.code) }} style={{
-                display: 'flex', alignItems: 'center', gap: 11, width: '100%', padding: '11px 13px',
-                borderRadius: 11, background: 'var(--s3)', border: '1px solid var(--br)',
-                cursor: 'pointer', marginBottom: 8, textAlign: 'left', fontFamily: 'var(--font)',
-              }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 800, color: 'var(--accent)', flexShrink: 0 }}>{c.code}</span>
-                <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--t)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</span>
-                <Sparkles size={13} style={{ marginLeft: 'auto', color: 'var(--accent-2)', flexShrink: 0 }} />
-              </button>
-            ))}
+
+            {(() => {
+              const list = courses || []
+              // Search appears once the list is long enough to be worth scanning.
+              const showSearch = list.length > 6
+              const q = query.trim().toLowerCase()
+              const filtered = q ? list.filter(c => (c.code + ' ' + c.title).toLowerCase().includes(q)) : list
+
+              if (list.length === 0) {
+                return <p style={{ color: 'var(--t3)', fontSize: 13.5, padding: '8px 0' }}>No AI-enabled courses yet.</p>
+              }
+              return (
+                <>
+                  {showSearch && (
+                    <div style={{ position: 'relative', marginBottom: 12 }}>
+                      <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--t3)', pointerEvents: 'none' }} />
+                      <input
+                        autoFocus
+                        value={query}
+                        onChange={e => setQuery(e.target.value)}
+                        placeholder="Search courses…"
+                        aria-label="Search courses"
+                        style={{
+                          width: '100%', padding: '10px 12px 10px 34px', borderRadius: 10,
+                          background: 'var(--s3)', border: '1px solid var(--br)', color: 'var(--t)',
+                          fontSize: 13.5, fontFamily: 'var(--font)', outline: 'none',
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  <div style={{ maxHeight: 320, overflowY: 'auto', margin: '0 -4px', padding: '0 4px' }}>
+                    {filtered.length === 0 ? (
+                      <p style={{ color: 'var(--t3)', fontSize: 13.5, padding: '10px 2px' }}>No courses match “{query.trim()}”.</p>
+                    ) : filtered.map(c => (
+                      <button key={c.code} onClick={() => { setPicker(false); openAI(c.code) }} style={{
+                        display: 'flex', alignItems: 'center', gap: 11, width: '100%', padding: '11px 13px',
+                        borderRadius: 11, background: 'var(--s3)', border: '1px solid var(--br)',
+                        cursor: 'pointer', marginBottom: 8, textAlign: 'left', fontFamily: 'var(--font)',
+                      }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 800, color: 'var(--accent)', flexShrink: 0 }}>{c.code}</span>
+                        <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--t)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</span>
+                        <Sparkles size={13} style={{ marginLeft: 'auto', color: 'var(--accent-2)', flexShrink: 0 }} />
+                      </button>
+                    ))}
+                  </div>
+
+                  <p style={{ fontSize: 11.5, color: 'var(--t3)', marginTop: 10, textAlign: 'center', opacity: 0.8 }}>
+                    Only courses with an AI Tutor are listed.
+                  </p>
+                </>
+              )
+            })()}
           </div>
         </div>,
         document.body

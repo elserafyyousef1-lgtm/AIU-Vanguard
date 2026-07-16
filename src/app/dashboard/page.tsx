@@ -5,7 +5,9 @@
 import { useEffect, useState } from 'react'
 import { SiteNavView } from '@/components/layout/SiteNavView'
 import { StudentHub } from '@/components/dashboard/StudentHub'
-import { StaffHub } from '@/components/dashboard/StaffHub'
+import { DoctorHub } from '@/components/dashboard/DoctorHub'
+import { MasterHub } from '@/components/dashboard/MasterHub'
+import { GuiderHub } from '@/components/dashboard/GuiderHub'
 import { AdminHub } from '@/components/dashboard/AdminHub'
 import { Spinner } from '@/components/ui/Spinner'
 import { createClient } from '@/lib/supabase/client'
@@ -154,9 +156,12 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Role-based hubs (unchanged) */}
+        {/* Workflow dashboards — each role's first screen answers
+            "what do I need to do now?" (queues + delegations, not static cards). */}
         {role === 'student' && <StudentHub userId={user.id} />}
-        {(role === 'doctor' || role === 'master') && <StaffHub />}
+        {role === 'doctor' && <DoctorHub />}
+        {role === 'master' && <MasterHub />}
+        {role === 'guider' && <GuiderHub />}
         {(role === 'owner' || role === 'admin') && <AdminHub />}
       </main>
     </>

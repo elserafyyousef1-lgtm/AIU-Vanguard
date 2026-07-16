@@ -6,7 +6,7 @@
 import { useState } from 'react'
 import type { Course } from '@/types'
 import { CSE221_LECTURES, CSE221_QUESTIONS, CSE221_QUICK_CHIPS } from '@/lib/data/cse221'
-import { MAT312_LECTURES, MAT312_QUESTIONS, MAT312_FLASHCARDS } from '@/lib/data/mat312'
+import { MAT312_LECTURES, MAT312_QUESTIONS, MAT312_FLASHCARDS, MAT312_QUICK_CHIPS } from '@/lib/data/mat312'
 import { AIE121_LECTURES, AIE121_QUESTIONS, AIE121_FLASHCARDS, AIE121_QUICK_CHIPS } from '@/lib/data/aie121'
 import { LecturesTab } from './LecturesTab'
 import { ExamTab } from './ExamTab'
@@ -178,7 +178,7 @@ export function CourseClient({ course }: Props) {
         <AIPanel
           courseSlug={course.slug}
           onClose={() => setAiOpen(false)}
-          quickChips={isCSE221 ? CSE221_QUICK_CHIPS : isAIE121 ? AIE121_QUICK_CHIPS : []}
+          quickChips={isCSE221 ? CSE221_QUICK_CHIPS : isAIE121 ? AIE121_QUICK_CHIPS : isMAT312 ? MAT312_QUICK_CHIPS : []}
         />
       )}
     </>

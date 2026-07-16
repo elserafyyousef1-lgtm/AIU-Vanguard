@@ -56,6 +56,7 @@ export default function MessagesPage() {
   const [loading, setLoading] = useState(true)
   const [showNew, setShowNew] = useState(false)
   const [staffList, setStaffList] = useState<Party[]>([])
+  const [taMap, setTaMap] = useState<Record<string, string[]>>({})  // user_id → assigned courses
   const [searchQ, setSearchQ] = useState('')
   const [imgFile, setImgFile] = useState<File | null>(null)
   const [imgPreview, setImgPreview] = useState<string | null>(null)
@@ -128,11 +129,30 @@ export default function MessagesPage() {
   }, [userId, activeId, loadMessages, loadConvos])
 
   const openNew = async () => {
-    // Anyone can message anyone — except student ↔ student (enforced in DB too)
-    let q = supabase.from('profiles').select('id, full_name, role, avatar_url').order('role', { ascending: true })
-    if (isStudent) q = q.neq('role', 'student')
-    const { data } = await q
-    setStaffList(((data as any) || []).filter((s: Party) => s.id !== userId))
+    // Who can a student message? Staff + anyone assigned to a course (TAs) — including
+    // student-TAs whose global role is still 'student'. Mirrors the DB is_staff_like rule.
+    let staffQ = supabase.from('profiles').select('id, full_name, role, avatar_url').order('role', { ascending: true })
+    if (isStudent) staffQ = staffQ.neq('role', 'student')
+    const [{ data: staff }, { data: assigns }] = await Promise.all([
+      staffQ,
+      supabase.from('course_assignments').select('user_id, course'),
+    ])
+    const taCourses: Record<string, string[]> = {}
+    ;(assigns || []).forEach((a: any) => { (taCourses[a.user_id] = taCourses[a.user_id] || []).push(a.course) })
+
+    let list: Party[] = ((staff as any) || [])
+    if (isStudent) {
+      // add student-TAs the role filter excluded
+      const have = new Set(list.map(s => s.id))
+      const missing = Object.keys(taCourses).filter(id => !have.has(id) && id !== userId)
+      if (missing.length) {
+        const { data: taProfiles } = await supabase
+          .from('profiles').select('id, full_name, role, avatar_url').in('id', missing)
+        list = [...list, ...(((taProfiles as any) || []))]
+      }
+    }
+    setTaMap(taCourses)
+    setStaffList(list.filter((s: Party) => s.id !== userId))
     setSearchQ('')
     setShowNew(true)
   }
@@ -358,7 +378,9 @@ export default function MessagesPage() {
         <div onClick={() => setShowNew(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div onClick={e => e.stopPropagation()} style={{ width: 'min(420px,100%)', background: 'var(--s2)', border: '1px solid var(--br)', borderRadius: 18, padding: 22, maxHeight: '70vh', overflowY: 'auto' }}>
             <h2 style={{ fontSize: 17, fontWeight: 800, color: 'var(--t)', marginBottom: 4 }}>New message</h2>
-            <p style={{ fontSize: 13, color: 'var(--t3)', marginBottom: 12 }}>Choose who you want to message.</p>
+            <p style={{ fontSize: 13, color: 'var(--t3)', marginBottom: 12 }}>
+              You can message staff and course TAs — student ↔ student chat isn't available.
+            </p>
             <input
               value={searchQ}
               onChange={e => setSearchQ(e.target.value)}
@@ -376,7 +398,11 @@ export default function MessagesPage() {
                 <Avatar party={s} size={40} />
                 <div>
                   <div style={{ fontWeight: 600, color: 'var(--t)', fontSize: 14 }}>{s.full_name}</div>
-                  <div style={{ fontSize: 12, color: 'var(--t3)' }}>{roleLabel(s.role)}</div>
+                  <div style={{ fontSize: 12, color: 'var(--t3)' }}>
+                    {s.role === 'student' && taMap[s.id]?.length
+                      ? `TA — ${taMap[s.id].join(', ')}`
+                      : roleLabel(s.role) + (taMap[s.id]?.length ? ` · ${taMap[s.id].join(', ')}` : '')}
+                  </div>
                 </div>
               </button>
             ))}

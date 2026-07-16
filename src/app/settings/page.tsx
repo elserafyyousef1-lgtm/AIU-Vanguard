@@ -141,7 +141,7 @@ export default function SettingsPage() {
           <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--t)', marginBottom: 6 }}>Contact</h2>
           <p style={{ fontSize: 12.5, color: 'var(--t3)', marginBottom: 18 }}>Private — visible only to you.</p>
           {field('Phone', <Phone size={13} />, phone, setPhone, '+20 1X XXX XXXX')}
-          {field('Email', <Mail size={13} />, contactEmail, setContactEmail, 'you@gmail.com')}
+          {field('Email', <Mail size={13} />, contactEmail, setContactEmail, 'you@gmail.com', 'Signed up with a student ID? Add your email here so you can receive notifications.')}
         </section>
 
         <section style={{ background: 'var(--s2)', border: '1px solid var(--br)', borderRadius: 16, padding: '14px 22px', marginBottom: 22 }}>

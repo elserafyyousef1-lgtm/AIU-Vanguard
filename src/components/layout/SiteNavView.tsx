@@ -1,17 +1,17 @@
 'use client'
 // src/components/layout/SiteNavView.tsx — the UNIFIED site nav (presentational).
 // One nav for the whole site (guest + signed-in, all roles). Desktop ≥1024: brand + main
-// links inline + util cluster + avatar menu. Tablet/mobile <1024: brand + bell + theme +
+// links inline + util cluster + avatar menu. Tablet/mobile <1024: brand + bell +
 // hamburger → MobileDrawer with every link + the util cluster + account actions.
 //
 // Link definitions come from the single source of truth in '@/lib/navigation'. The util
-// cluster (Search/CommandPalette, OnlineCounter, NotificationBell, theme) lives HERE so
+// cluster (Search/CommandPalette, OnlineCounter, NotificationBell) lives HERE so
 // nothing is lost vs the old Navbar / AppShell header.
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { Menu, Command, Sun, Moon, ChevronDown, UserCircle, Settings, LogOut } from 'lucide-react'
-import { useUIStore, useUserStore } from '@/lib/store'
+import { Menu, Command, ChevronDown, UserCircle, Settings, LogOut } from 'lucide-react'
+import { useUIStore } from '@/lib/store'
 import { OnlineCounter } from '@/components/ui/OnlineCounter'
 import { NotificationBell } from '@/components/ui/NotificationBell'
 import { CommandPalette } from '@/components/ui/CommandPalette'
@@ -36,7 +36,6 @@ export function SiteNavView({ active, user, isAdmin = false, loading, onLogout }
   const router = useRouter()
   const [drawer, setDrawer] = useState(false)
   const { setCmdOpen } = useUIStore()
-  const { settings, updateSettings } = useUserStore()
 
   // Remember the signed-in identity for the tab so the role-aware nav doesn't flicker to the
   // guest links while a freshly-mounted page revalidates its session (display only — see
@@ -67,8 +66,6 @@ export function SiteNavView({ active, user, isAdmin = false, loading, onLogout }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
   }, [setCmdOpen])
-
-  const toggleTheme = () => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })
 
   const Avatar = ({ size = 28 }: { size?: number }) => (
     <span className="sitenav-avatar" style={{ width: size, height: size, fontSize: size * 0.43 }}>
@@ -107,9 +104,9 @@ export function SiteNavView({ active, user, isAdmin = false, loading, onLogout }
           <div className="sitenav-online"><span className="dot" /><OnlineCounter /></div>
           {authed && <VanguardAI />}
           {authed && <NotificationBell />}
-          <button className="sitenav-icon" onClick={toggleTheme} title="Toggle theme" aria-label="Toggle theme">
-            {settings.theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
-          </button>
+          {/* Theme toggle removed pending real light-mode support — the app is dark-only
+              (see <html className="dark"> in app/layout.tsx). Re-add here when a light
+              theme actually applies to the DOM. */}
 
           {authed ? (
             <Dropdown

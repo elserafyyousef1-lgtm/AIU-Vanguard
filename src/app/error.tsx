@@ -4,11 +4,14 @@
 // and its hubs) and shows a loud on-screen red banner with the full message + stack,
 // instead of a blank/stuck screen. Defensive only — no app logic changed.
 import { useEffect } from 'react'
+import { reportError } from '@/lib/errorReporter'
 
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     // Surface full detail in the console too (for when DevTools IS open).
     console.error('[AIU render error boundary]', error)
+    // …and file it so the owner sees it without a screenshot.
+    reportError(`[render] ${error?.message || 'Unknown render error'}`, error?.stack)
   }, [error])
 
   return (

@@ -56,3 +56,6 @@ Thumbs.db
 *.pem
 
 .vercel
+
+# Large marketing media (derived artifacts — kept local, not versioned)
+marketing/

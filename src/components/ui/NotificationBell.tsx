@@ -8,7 +8,9 @@
 // ───────────────────────────────────────────────────────────
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
+import { Z } from '@/lib/z'
 import { Bell, Heart, MessageCircle, CornerUpLeft, Mail, Trash2, Megaphone, Award, GraduationCap, BookOpen, UserCog, ClipboardList, Sparkles } from 'lucide-react'
 import { playSound } from '@/lib/sound'
 import {
@@ -82,7 +84,11 @@ export function NotificationBell() {
   const [shake, setShake] = useState(false)
   const [, force] = useState(0)
   const wrapRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const welcomePlayed = useRef(false)
+  // Portal target captured once on the client — avoids re-reading document.body each render
+  const [portalEl, setPortalEl] = useState<HTMLElement | null>(null)
+  useEffect(() => { setPortalEl(document.body) }, [])
 
   // Tab-wide store is the single source of truth (fetch/realtime/sound live there).
   const items = getNotifications()
@@ -116,7 +122,9 @@ export function NotificationBell() {
   // Close dropdown on outside click
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+      const t = e.target as Node
+      // dropdown is portaled to <body>, so it's outside wrapRef — check both
+      if (!wrapRef.current?.contains(t) && !panelRef.current?.contains(t)) setOpen(false)
     }
     document.addEventListener('mousedown', onClick)
     return () => document.removeEventListener('mousedown', onClick)
@@ -192,12 +200,12 @@ export function NotificationBell() {
         )}
       </button>
 
-      {open && (
-        <div style={{
-          position: 'absolute', right: 0, top: 46, zIndex: 100,
-          width: 340, maxWidth: '90vw', maxHeight: 440, overflowY: 'auto',
+      {open && portalEl && createPortal(
+        <div ref={panelRef} style={{
+          position: 'fixed', top: 62, right: 16, zIndex: Z.dropdown,
+          width: 'min(360px, calc(100vw - 32px))', maxHeight: 'min(72vh, 460px)', overflowY: 'auto',
           background: 'var(--s2)', border: '1px solid var(--br)', borderRadius: 14,
-          boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
+          boxShadow: '0 12px 40px rgba(0,0,0,0.45)',
           animation: 'notifIn 0.16s ease-out',
         }}>
           <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--br)', position: 'sticky', top: 0, background: 'var(--s2)' }}>
@@ -254,7 +262,8 @@ export function NotificationBell() {
               ><Trash2 size={13} /></button>
             </div>
           ))}
-        </div>
+        </div>,
+        portalEl
       )}
 
       <style jsx>{`

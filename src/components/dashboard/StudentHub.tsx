@@ -1,14 +1,27 @@
 'use client'
-// src/components/dashboard/StudentHub.tsx — real student dashboard:
-// enrolled courses, level, and a PRIVATE rank among all students.
+// src/components/dashboard/StudentHub.tsx — the student's WORKFLOW dashboard:
+// "what's next" first (deadlines + GPA computed BY THE DATABASE, never by AI),
+// then enrolled courses, level, and a PRIVATE rank among all students.
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { BookOpen, Trophy, BarChart3, Clock, Lock, CheckCircle2, EyeOff, ArrowRight } from 'lucide-react'
+import { useUIStore } from '@/lib/store'
+import { BookOpen, Trophy, BarChart3, Clock, Lock, CheckCircle2, EyeOff, ArrowRight, CalendarClock, Sparkles } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 
 interface Enr { id: string; course: string; enrolled_at: string; completed: boolean }
 interface RankRow { rank: number; total: number; score: number }
+interface Deadline { id: string; title: string; due_at: string; course: string; submitted: boolean }
+interface FinalGrade { course: string; final_percent: number | null; graded_count: number }
+
+// AIU letter scale — pure math on DB-computed percentages (AI never touches grades)
+const gradePoint = (p: number) =>
+  p >= 93 ? { l: 'A',  pts: 4.0 } : p >= 89 ? { l: 'A-', pts: 3.7 } :
+  p >= 84 ? { l: 'B+', pts: 3.3 } : p >= 80 ? { l: 'B',  pts: 3.0 } :
+  p >= 76 ? { l: 'B-', pts: 2.7 } : p >= 73 ? { l: 'C+', pts: 2.3 } :
+  p >= 70 ? { l: 'C',  pts: 2.0 } : p >= 67 ? { l: 'C-', pts: 1.7 } :
+  p >= 64 ? { l: 'D+', pts: 1.3 } : p >= 60 ? { l: 'D',  pts: 1.0 } :
+            { l: 'F',  pts: 0.0 }
 
 const levelOf = (s: number) =>
   s >= 600 ? { label: 'Elite',    color: '#f59e0b' } :
@@ -18,9 +31,12 @@ const levelOf = (s: number) =>
 
 export function StudentHub({ userId }: { userId: string }) {
   const supabase = createClient()
+  const { openAI } = useUIStore()
   const [enrs, setEnrs] = useState<Enr[]>([])
   const [titles, setTitles] = useState<Record<string, string>>({})
   const [rank, setRank] = useState<RankRow | null>(null)
+  const [deadlines, setDeadlines] = useState<Deadline[]>([])
+  const [finals, setFinals] = useState<FinalGrade[]>([])
 
   useEffect(() => {
     const load = async () => {
@@ -30,18 +46,50 @@ export function StudentHub({ userId }: { userId: string }) {
       const list: Enr[] = (en as any) || []
       setEnrs(list)
       if (list.length) {
+        const codes = list.map(e => e.course)
         const { data: cs } = await supabase
-          .from('courses').select('code, title')
-          .in('code', list.map(e => e.course))
+          .from('courses').select('id, code, title').in('code', codes)
         const map: Record<string, string> = {}
         ;(cs || []).forEach((c: any) => { map[c.code] = c.title })
         setTitles(map)
+
+        // ── upcoming deadlines: published work due in the next 14 days, not yet submitted
+        const courseIds = (cs || []).map((c: any) => c.id)
+        if (courseIds.length) {
+          const soon = new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString()
+          const { data: asg } = await supabase
+            .from('assignments').select('id, title, due_at, course_id')
+            .in('course_id', courseIds).eq('published', true)
+            .not('due_at', 'is', null).gte('due_at', new Date().toISOString()).lte('due_at', soon)
+            .order('due_at').limit(5)
+          const asgIds = (asg || []).map((a: any) => a.id)
+          const { data: mySubs } = asgIds.length
+            ? await supabase.from('submissions').select('assignment_id')
+                .in('assignment_id', asgIds).eq('student_id', userId)
+            : { data: [] as any[] }
+          const submitted = new Set((mySubs || []).map((s: any) => s.assignment_id))
+          const codeOf: Record<string, string> = {}
+          ;(cs || []).forEach((c: any) => { codeOf[c.id] = c.code })
+          setDeadlines((asg || []).map((a: any) => ({
+            id: a.id, title: a.title, due_at: a.due_at,
+            course: codeOf[a.course_id] || '', submitted: submitted.has(a.id),
+          })))
+        }
       }
+      // ── GPA: the DATABASE computes the percentages (deterministic — never the AI)
+      const { data: fg } = await supabase.rpc('my_final_grades')
+      setFinals(((fg as any) || []).filter((f: FinalGrade) => f.final_percent != null))
+
       const { data: r } = await supabase.rpc('my_student_rank')
       if (r && (r as any).length) setRank((r as any)[0])
     }
     load()
   }, [userId])
+
+  const gpa = finals.length
+    ? (finals.reduce((a, f) => a + gradePoint(Number(f.final_percent)).pts, 0) / finals.length)
+    : null
+  const dueSoonUnsubmitted = deadlines.filter(d => !d.submitted).length
 
   const editable = (e: Enr) => Date.now() - new Date(e.enrolled_at).getTime() < 24 * 3600 * 1000
   const hoursLeft = (e: Enr) =>
@@ -62,6 +110,50 @@ export function StudentHub({ userId }: { userId: string }) {
 
   return (
     <div className="anim-2">
+      {/* ── What's next (deadlines + DB-computed GPA) ── */}
+      {(deadlines.length > 0 || gpa !== null) && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 26 }}>
+          {gpa !== null && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 13, flexWrap: 'wrap',
+              background: 'linear-gradient(135deg, rgba(224,38,75,0.07), rgba(139,92,246,0.05))',
+              border: '1px solid var(--accent-br)', borderRadius: 13, padding: '13px 16px',
+            }}>
+              <BarChart3 size={16} style={{ color: 'var(--accent)' }} />
+              <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--t)' }}>
+                Current GPA: <span style={{ fontFamily: 'var(--font-display)', fontSize: 17, color: 'var(--accent)' }}>{gpa.toFixed(2)}</span>
+              </span>
+              <span style={{ fontSize: 12.5, color: 'var(--t3)' }}>
+                {finals.map(f => `${f.course} ${gradePoint(Number(f.final_percent)).l} (${f.final_percent}%)`).join(' · ')}
+              </span>
+              <span style={{ marginLeft: 'auto' }}>
+                <Button size="sm" variant="subtle" onClick={() => openAI(finals[0]?.course || enrs[0]?.course || 'CSE221')}>
+                  <Sparkles size={13} style={{ marginRight: 5 }} /> Ask AI how to improve
+                </Button>
+              </span>
+            </div>
+          )}
+          {deadlines.map(d => (
+            <div key={d.id} style={{
+              display: 'flex', alignItems: 'center', gap: 13, flexWrap: 'wrap',
+              background: 'var(--s2)', border: `1px solid ${d.submitted ? 'var(--br)' : 'rgba(245,158,11,0.4)'}`,
+              borderRadius: 13, padding: '12px 16px',
+            }}>
+              <CalendarClock size={15} style={{ color: d.submitted ? '#10b981' : '#f59e0b', flexShrink: 0 }} />
+              <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--accent)' }}>{d.course}</span>
+              <span style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: 'var(--t)' }}>{d.title}</span>
+              <span style={{ fontSize: 12, color: d.submitted ? '#10b981' : '#f59e0b', fontWeight: 700 }}>
+                {d.submitted ? 'Submitted ✓' : `Due ${new Date(d.due_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`}
+              </span>
+              {!d.submitted && (
+                <Button href={`/courses/${d.course.toLowerCase()}/assignments`} size="sm">Open</Button>
+              )}
+            </div>
+          ))}
+          {dueSoonUnsubmitted === 0 && deadlines.length === 0 && null}
+        </div>
+      )}
+
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px,1fr))', gap: 14, marginBottom: 30 }}>
         {card(<BookOpen size={15} />, 'Enrolled Courses', enrs.length, 'var(--accent)')}

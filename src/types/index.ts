@@ -17,9 +17,8 @@ export interface Semester {
 export type CourseSlug =
   | 'CSE221'  // Database Systems
   | 'MAT312'  // Differential Equations
-  | 'CSE301'  // Machine Learning
   | 'CSE311'  // Computer Architecture
-  | 'AIE121'  // Machine Learning (Study Lab)
+  | 'AIE121'  // Machine Learning
 
 export interface Course {
   slug: string

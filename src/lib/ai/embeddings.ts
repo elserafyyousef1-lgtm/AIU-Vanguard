@@ -13,6 +13,11 @@ const URL = `https://generativelanguage.googleapis.com/v1beta/${MODEL}:embedCont
 // RETRIEVAL_DOCUMENT for stored chunks, RETRIEVAL_QUERY for the user's question.
 export type EmbedTask = 'RETRIEVAL_DOCUMENT' | 'RETRIEVAL_QUERY'
 
+// Hard ceiling on the embedding round-trip. RAG is best-effort context: if Gemini
+// hangs (observed in production as 20-30s tutor stalls), we must abort fast and let
+// the tutor answer ungrounded rather than hold the whole /api/ai-tutor request.
+const EMBED_TIMEOUT_MS = 3000
+
 export async function embedText(text: string, taskType: EmbedTask): Promise<number[]> {
   const key = process.env.GEMINI_API_KEY
   if (!key) throw new Error('GEMINI_API_KEY is not configured')
@@ -26,6 +31,7 @@ export async function embedText(text: string, taskType: EmbedTask): Promise<numb
       taskType,
       outputDimensionality: EMBED_DIM,
     }),
+    signal: AbortSignal.timeout(EMBED_TIMEOUT_MS),
   })
 
   if (!res.ok) {

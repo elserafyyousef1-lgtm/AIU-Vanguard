@@ -13,6 +13,14 @@ import { SiteNavView } from '@/components/layout/SiteNavView'
 import toast from 'react-hot-toast'
 import { Loader2, MessageSquare, Pencil, Check, Linkedin, Camera, ImagePlus, X, Github, Award } from 'lucide-react'
 
+// Render-side safety net: only ever emit an href for an http(s) URL. Blocks javascript:/data:
+// schemes from becoming a clickable link even if bad data slipped past the DB constraint.
+const safeUrl = (u: string | null | undefined): string | undefined => {
+  if (!u) return undefined
+  try { const p = new URL(u); return (p.protocol === 'https:' || p.protocol === 'http:') ? u : undefined }
+  catch { return undefined }
+}
+
 const roleMeta = (r?: string) => {
   switch (r) {
     case 'owner':  return { label: 'Owner', color: '#f59e0b' }
@@ -347,9 +355,9 @@ export default function ProfilePage() {
                   {profile.bio || (isSelf ? 'No bio yet. Add one so people know who you are.' : 'No bio yet.')}
                 </p>
                 <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-                  {profile.linkedin && (
+                  {safeUrl(profile.linkedin) && (
                     <a
-                      href={profile.linkedin}
+                      href={safeUrl(profile.linkedin)}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{
@@ -362,9 +370,9 @@ export default function ProfilePage() {
                       <Linkedin size={14} /> LinkedIn
                     </a>
                   )}
-                  {profile.github && (
+                  {safeUrl(profile.github) && (
                     <a
-                      href={profile.github}
+                      href={safeUrl(profile.github)}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{
