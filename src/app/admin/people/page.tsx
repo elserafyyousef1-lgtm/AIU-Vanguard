@@ -15,6 +15,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { SiteNav } from '@/components/layout/SiteNav'
+import { playSound } from '@/lib/sound'
 import toast from 'react-hot-toast'
 import {
   Loader2, Shield, Search, ChevronDown, ChevronUp,
@@ -142,6 +143,10 @@ export default function PeoplePage() {
       return
     }
     setPeople(ps => ps.map(p => p.id === id ? { ...p, role: newRole } : p))
+    // Audible confirmation for the actor. The "Attention survivor…" voice is the RECIPIENT's
+    // sound (fired in the promoted person's browser by the on_role_change_notify trigger);
+    // here we give whoever made the change a soft local ding so the action is never silent.
+    playSound('ding')
     toast.success('Role updated.')
   }
 

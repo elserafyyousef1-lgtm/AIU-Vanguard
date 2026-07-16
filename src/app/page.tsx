@@ -2,6 +2,7 @@
 import { SiteNav } from '@/components/layout/SiteNav'
 import { HeroSection } from '@/components/layout/HeroSection'
 import { SemestersGrid } from '@/components/layout/SemestersGrid'
+import { RequirementsSection } from '@/components/layout/RequirementsSection'
 import { HomeShowcase } from '@/components/layout/HomeShowcase'
 import { WelcomeModal } from '@/components/ui/WelcomeModal'
 import { SettingsPanel } from '@/components/ui/SettingsPanel'
@@ -17,6 +18,10 @@ export default function HomePage() {
         {/* anchor target for the hero's "Browse semesters" CTA */}
         <div id="semesters" style={{ scrollMarginTop: 80 }}>
           <SemestersGrid />
+        </div>
+        {/* university-wide online requirement courses — reference catalog after the 8 semesters */}
+        <div id="requirements" style={{ scrollMarginTop: 80 }}>
+          <RequirementsSection />
         </div>
         {/* tech-stack marquees + the First Survivor portrait (from the design reference) */}
         <HomeShowcase />

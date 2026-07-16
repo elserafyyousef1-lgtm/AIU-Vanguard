@@ -107,14 +107,21 @@ export function NotificationBell() {
     return unsub
   }, [])
 
-  // Play the welcome fanfare once per session when an unread welcome notification exists
+  // Play the welcome fanfare EXACTLY ONCE per user — the very first time they ever sign in.
+  // Keyed by the welcome notification's id in localStorage (persists across browser sessions),
+  // so re-opening the site or logging in again never replays it — even if the user never
+  // clicked the welcome notification to mark it read. (sessionStorage would replay each session.)
   useEffect(() => {
     if (welcomePlayed.current) return
-    if (!items.some(n => n.type === 'welcome' && !n.read_at)) return
+    const w = items.find(n => n.type === 'welcome' && !n.read_at)
+    if (!w) return
     welcomePlayed.current = true
     try {
-      if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('aiu-welcome-sound')) return
-      sessionStorage.setItem('aiu-welcome-sound', '1')
+      const key = `aiu-welcome-${w.id}`
+      if (typeof localStorage !== 'undefined') {
+        if (localStorage.getItem(key)) return // already heard on this browser — never again
+        localStorage.setItem(key, '1')
+      }
     } catch { /* ignore */ }
     playSound('welcome')
   }, [items])
