@@ -5,9 +5,14 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { Lock, ChevronRight, BookOpen } from 'lucide-react'
+import { Lock, ChevronRight, BookOpen, Globe } from 'lucide-react'
 
 interface Sem { id: number; title: string; count: number; codes: string[] }
+
+// The "University Requirements" track is a real semester row (id 9) holding the online
+// general-requirement courses. It always renders as an open card next to Semester 8 —
+// even with 0 courses visible to the viewer (students see only published ones via RLS).
+const REQ_SEM_ID = 9
 
 export function SemestersGrid() {
   const supabase = createClient()
@@ -50,7 +55,8 @@ export function SemestersGrid() {
         gap:16,
       }}>
         {sems.map((sem, i) => {
-          const isActive = sem.count > 0
+          const isReq = sem.id === REQ_SEM_ID
+          const isActive = isReq || sem.count > 0
           return (
             <div
               key={sem.id}
@@ -59,10 +65,10 @@ export function SemestersGrid() {
             >
               {isActive ? (
                 <Link href={`/semesters/${sem.id}`} style={{ textDecoration:'none' }}>
-                  <SemesterCard sem={sem} isActive />
+                  <SemesterCard sem={sem} isActive isReq={isReq} />
                 </Link>
               ) : (
-                <SemesterCard sem={sem} isActive={false} />
+                <SemesterCard sem={sem} isActive={false} isReq={false} />
               )}
             </div>
           )
@@ -72,7 +78,7 @@ export function SemestersGrid() {
   )
 }
 
-function SemesterCard({ sem, isActive }: { sem: Sem; isActive: boolean }) {
+function SemesterCard({ sem, isActive, isReq }: { sem: Sem; isActive: boolean; isReq: boolean }) {
   return (
     <div style={{
       background: isActive ? 'var(--s2)' : 'var(--s1)',
@@ -101,7 +107,7 @@ function SemesterCard({ sem, isActive }: { sem: Sem; isActive: boolean }) {
             fontFamily:'var(--font-mono)', fontSize:10, color: isActive ? 'var(--accent)' : 'var(--t3)',
             letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:4,
           }}>
-            Semester {sem.id}
+            {isReq ? 'Online · Requirements' : `Semester ${sem.id}`}
           </div>
           <div style={{ fontWeight:700, fontSize:15, color:'var(--t)', letterSpacing:'-0.01em' }}>
             {sem.title}
@@ -113,14 +119,14 @@ function SemesterCard({ sem, isActive }: { sem: Sem; isActive: boolean }) {
           background: isActive ? 'rgba(224,38,75,0.12)' : 'var(--s3)',
           color: isActive ? 'var(--accent)' : 'var(--t3)',
         }}>
-          {isActive ? <ChevronRight size={14} /> : <Lock size={12} />}
+          {isReq ? <Globe size={14} /> : isActive ? <ChevronRight size={14} /> : <Lock size={12} />}
         </div>
       </div>
 
       {isActive ? (
         <>
           <p style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, color:'var(--t3)', marginBottom:10 }}>
-            <BookOpen size={12} /> {sem.count} {sem.count === 1 ? 'course' : 'courses'} available
+            <BookOpen size={12} /> {sem.count > 0 ? `${sem.count} ${sem.count === 1 ? 'course' : 'courses'} available` : 'University-wide online courses'}
           </p>
           <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
             {sem.codes.map(code => (

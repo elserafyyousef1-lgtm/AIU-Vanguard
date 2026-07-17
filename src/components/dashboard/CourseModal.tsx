@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
-import { X, Loader2, Save, Sparkles, Calculator } from 'lucide-react'
+import { X, Loader2, Save, Sparkles, Calculator, Eye } from 'lucide-react'
 
 export interface CourseRow {
   id?: string
@@ -20,6 +20,7 @@ export interface CourseRow {
   tags?: string[] | null
   has_ai?: boolean | null
   has_formulas?: boolean | null
+  published?: boolean | null
 }
 
 const COLORS = ['#e0264b', '#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899']
@@ -41,6 +42,7 @@ export function CourseModal({ course, onClose, onSaved }: { course: CourseRow | 
   const [tags, setTags] = useState((course?.tags || []).join(', '))
   const [hasAi, setHasAi] = useState(course?.has_ai ?? true)
   const [hasFormulas, setHasFormulas] = useState(course?.has_formulas ?? false)
+  const [published, setPublished] = useState(course?.published ?? true)
   const [busy, setBusy] = useState(false)
 
   const save = async () => {
@@ -70,6 +72,7 @@ export function CourseModal({ course, onClose, onSaved }: { course: CourseRow | 
       tags: tagArr,
       has_ai: hasAi,
       has_formulas: hasFormulas,
+      published,
     }
 
     setBusy(true)
@@ -110,7 +113,7 @@ export function CourseModal({ course, onClose, onSaved }: { course: CourseRow | 
             </Field>
             <Field label="Semester" flex="0 1 130px">
               <select value={semId} onChange={e => setSemId(parseInt(e.target.value))} style={{ ...inp, cursor: 'pointer' }}>
-                {[1, 2, 3, 4, 5, 6, 7, 8].map(n => <option key={n} value={n}>Semester {n}</option>)}
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => <option key={n} value={n}>{n === 9 ? 'University Requirements' : `Semester ${n}`}</option>)}
               </select>
             </Field>
             <Field label="Credit Hours" flex="0 1 110px">
@@ -145,9 +148,13 @@ export function CourseModal({ course, onClose, onSaved }: { course: CourseRow | 
           </Field>
 
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <Toggle label="Published" icon={<Eye size={14} />} on={published} set={setPublished} />
             <Toggle label="Has AI Tutor" icon={<Sparkles size={14} />} on={hasAi} set={setHasAi} />
             <Toggle label="Has Formulas" icon={<Calculator size={14} />} on={hasFormulas} set={setHasFormulas} />
           </div>
+          <p style={{ fontSize: 11.5, color: 'var(--t3)', marginTop: -4, lineHeight: 1.5 }}>
+            <strong style={{ color: 'var(--t2)' }}>Published</strong> = students can see and open this course. Turn it off to keep it a private draft only you and its managers can see.
+          </p>
         </div>
 
         {/* Footer */}

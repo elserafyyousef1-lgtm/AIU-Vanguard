@@ -25,7 +25,7 @@ export function AdminHub() {
       supabase.from('courses').select('id', { count: 'exact', head: true }),
       supabase.from('teach_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
       supabase.from('courses')
-        .select('id, code, title, semester_id, description, requirements, instructor, credit_hours, color, icon, tags, has_ai, has_formulas')
+        .select('id, code, title, semester_id, description, requirements, instructor, credit_hours, color, icon, tags, has_ai, has_formulas, published')
         .order('semester_id').order('code'),
     ])
     setStats({ students: st.count || 0, doctors: dr.count || 0, courses: cs.count || 0, pending: pd.count || 0 })
