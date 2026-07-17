@@ -210,7 +210,11 @@ export default function SemesterPage() {
         </p>
 
         {loading || authLoading ? (
-          <div style={center}><Loader2 size={18} className="animate-spin" /></div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="skeleton" style={{ height: 64, borderRadius: 14 }} />
+            ))}
+          </div>
         ) : courses.length === 0 ? (
           <p style={{ color: 'var(--t3)', fontSize: 14 }}>No courses in this semester yet.</p>
         ) : (
