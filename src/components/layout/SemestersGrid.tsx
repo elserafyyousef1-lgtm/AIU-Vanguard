@@ -16,6 +16,18 @@ const REQ_SEM_ID = 9
 // Distinct cool accent for the online-requirements track (vs the crimson CS semesters).
 const REQ_ACCENT = '#38bdf8'
 
+// Each upcoming semester's focus — gives the locked cards identity and previews the
+// program arc instead of a wall of identical "No courses yet". Purely presentational.
+const SEM_THEMES: Record<number, string> = {
+  1: 'Foundations · Math & Programming',
+  2: 'Data Structures & Algorithms',
+  3: 'OOP · Discrete Math · Linear Algebra',
+  5: 'Operating Systems · Networks · SW Eng',
+  6: 'Compilers · AI · Web',
+  7: 'Distributed Systems · Vision · Security',
+  8: 'Graduation Project & Electives',
+}
+
 export function SemestersGrid() {
   const supabase = createClient()
   const [sems, setSems] = useState<Sem[]>([])
@@ -81,6 +93,7 @@ export function SemestersGrid() {
 }
 
 function SemesterCard({ sem, isActive, isReq }: { sem: Sem; isActive: boolean; isReq: boolean }) {
+  const theme = SEM_THEMES[sem.id]
   return (
     <div className={isActive ? 'card-lift' : undefined} style={{
       background: isActive ? 'var(--s2)' : 'var(--s1)',
@@ -158,14 +171,21 @@ function SemesterCard({ sem, isActive, isReq }: { sem: Sem; isActive: boolean; i
           </div>
         </>
       ) : (
-        <div style={{
-          display:'inline-flex', alignItems:'center', gap:5,
-          padding:'3px 10px', borderRadius:6,
-          background:'var(--s3)', border:'1px solid var(--br)',
-          fontSize:11, fontFamily:'var(--font-mono)', color:'var(--t3)',
-        }}>
-          <Lock size={10} /> No courses yet
-        </div>
+        <>
+          {theme && (
+            <p style={{ fontSize:12.5, color:'var(--t2)', fontWeight:500, letterSpacing:'-0.01em', marginBottom:10, lineHeight:1.4 }}>
+              {theme}
+            </p>
+          )}
+          <div style={{
+            display:'inline-flex', alignItems:'center', gap:5,
+            padding:'3px 10px', borderRadius:6,
+            background:'var(--s3)', border:'1px solid var(--br)',
+            fontSize:11, fontFamily:'var(--font-mono)', color:'var(--t3)',
+          }}>
+            <Lock size={10} /> Unlocks soon
+          </div>
+        </>
       )}
     </div>
   )
