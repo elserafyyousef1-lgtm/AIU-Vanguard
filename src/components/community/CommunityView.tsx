@@ -12,6 +12,10 @@ import { useAuth } from '@/hooks/useAuth'
 import toast from 'react-hot-toast'
 import type { Post } from '@/types'
 
+// The University Requirements track (semester 9) is split out so its ~16 courses collapse
+// under one toggle instead of flooding the community with tags.
+const REQ_SEM_ID = 9
+
 export function CommunityView({ courseFilter }: { courseFilter: string | null }) {
   const [posts, setPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,14 +44,29 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
     ? (role === 'owner' || role === 'admin' || myCourses.includes(courseFilter))
     : (isStaff || isMaster)
   const supabase = createClient()
-  const [courseCodes, setCourseCodes] = useState<string[]>([])
+  const [csCodes, setCsCodes] = useState<string[]>([])
+  const [reqCodes, setReqCodes] = useState<string[]>([])
+  const [showReqs, setShowReqs] = useState(false)
+
+  // Compact tag-button style (shared by the composer). Requirement courses (not in the
+  // static COURSES map) fall back to the sky accent used by the requirements track.
+  const tagBtn = (active: boolean, slug: string): React.CSSProperties => ({
+    padding: '4px 10px', borderRadius: 6, fontSize: 11.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font)',
+    background: active ? (slug ? (COURSES[slug]?.colorBg || 'rgba(56,189,248,0.12)') : 'var(--s4)') : 'var(--s3)',
+    color: active ? (slug ? (COURSES[slug]?.color || '#38bdf8') : 'var(--t)') : 'var(--t3)',
+    border: `1px solid ${active && slug ? ((COURSES[slug]?.color || '#38bdf8') + '44') : 'var(--br)'}`,
+  })
 
   // Current user (local session read — RLS still guards every query) + the REAL course list
   // for the filter chips (was a hardcoded 4-course array from the study-package era).
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null))
-    supabase.from('courses').select('code').order('code')
-      .then(({ data }) => setCourseCodes((data || []).map((c: any) => c.code)))
+    supabase.from('courses').select('code, semester_id').order('semester_id').order('code')
+      .then(({ data }) => {
+        const rows = (data || []) as { code: string; semester_id: number }[]
+        setCsCodes(rows.filter(c => c.semester_id !== REQ_SEM_ID).map(c => c.code))
+        setReqCodes(rows.filter(c => c.semester_id === REQ_SEM_ID).map(c => c.code))
+      })
   }, [])
 
   // Load posts
@@ -333,15 +352,15 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
           </p>
         </div>
 
-        {/* Course navigation */}
-        <div className="anim-1" style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:28 }}>
+        {/* Course navigation — General + CS courses; University Requirements collapse under one toggle */}
+        <div className="anim-1" style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:28, alignItems:'center' }}>
           <Link href="/community" style={{
             padding:'7px 14px', borderRadius:9, fontSize:13, fontWeight:600, textDecoration:'none',
             background: !courseFilter ? 'var(--accent)' : 'var(--s2)',
             color: !courseFilter ? 'white' : 'var(--t2)',
             border:'1px solid var(--br)',
           }}>General</Link>
-          {courseCodes.map(slug => (
+          {csCodes.map(slug => (
             <Link key={slug} href={`/community/${slug}`} style={{
               padding:'7px 14px', borderRadius:9, fontSize:13, fontWeight:600, textDecoration:'none',
               background: courseFilter === slug ? (COURSES[slug]?.color || 'var(--accent)') : 'var(--s2)',
@@ -349,6 +368,30 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
               border:'1px solid var(--br)',
             }}>{slug}</Link>
           ))}
+          {reqCodes.length > 0 && (
+            <>
+              <button
+                onClick={() => setShowReqs(v => !v)}
+                style={{
+                  display:'inline-flex', alignItems:'center', gap:6, padding:'7px 13px', borderRadius:9,
+                  fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'var(--font)',
+                  background: (showReqs || (courseFilter && reqCodes.includes(courseFilter))) ? 'rgba(56,189,248,0.12)' : 'var(--s2)',
+                  color: (showReqs || (courseFilter && reqCodes.includes(courseFilter))) ? '#38bdf8' : 'var(--t2)',
+                  border:'1px solid ' + ((showReqs || (courseFilter && reqCodes.includes(courseFilter))) ? 'rgba(56,189,248,0.35)' : 'var(--br)'),
+                }}
+              >
+                🌐 University Requirements {showReqs ? '▾' : `· ${reqCodes.length}`}
+              </button>
+              {(showReqs || (courseFilter && reqCodes.includes(courseFilter))) && reqCodes.map(slug => (
+                <Link key={slug} href={`/community/${slug}`} style={{
+                  padding:'6px 11px', borderRadius:8, fontSize:12, fontWeight:600, textDecoration:'none',
+                  background: courseFilter === slug ? '#38bdf8' : 'var(--s3)',
+                  color: courseFilter === slug ? 'white' : 'var(--t3)',
+                  border:'1px solid var(--br)',
+                }}>{slug}</Link>
+              ))}
+            </>
+          )}
         </div>
 
         {/* New post — only staff (owner/admin/doctor) can post */}
@@ -470,23 +513,34 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
               >
                 <Video size={15} />
               </button>
-              {!courseFilter && ['', ...courseCodes].map(slug => (
-                <button
-                  key={slug}
-                  onClick={() => setCourseTag(slug)}
-                  style={{
-                    padding:'4px 10px', borderRadius:6, fontSize:11.5, fontWeight:600,
-                    background: courseTag === slug
-                      ? slug ? COURSES[slug]?.colorBg : 'var(--s4)'
-                      : 'var(--s3)',
-                    color: courseTag === slug
-                      ? slug ? COURSES[slug]?.color : 'var(--t)'
-                      : 'var(--t3)',
-                    border:`1px solid ${courseTag === slug && slug ? COURSES[slug]?.color + '44' : 'var(--br)'}`,
-                    cursor:'pointer', fontFamily:'var(--font)',
-                  }}
-                >{slug || 'General'}</button>
-              ))}
+              {!courseFilter && (
+                <>
+                  {['', ...csCodes].map(slug => (
+                    <button key={slug} onClick={() => setCourseTag(slug)} style={tagBtn(courseTag === slug, slug)}>
+                      {slug || 'General'}
+                    </button>
+                  ))}
+                  {reqCodes.length > 0 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setShowReqs(v => !v)}
+                        style={{
+                          padding:'4px 10px', borderRadius:6, fontSize:11.5, fontWeight:600, cursor:'pointer',
+                          fontFamily:'var(--font)', background:'var(--s3)', color:'var(--t2)', border:'1px solid var(--br)',
+                        }}
+                      >
+                        Requirements {showReqs ? '▾' : `· ${reqCodes.length}`}
+                      </button>
+                      {(showReqs || reqCodes.includes(courseTag)) && reqCodes.map(slug => (
+                        <button key={slug} onClick={() => setCourseTag(slug)} style={tagBtn(courseTag === slug, slug)}>
+                          {slug}
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </>
+              )}
             </div>
 
             <button

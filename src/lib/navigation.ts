@@ -10,12 +10,13 @@
 
 export interface NavLink { href: string; label: string }
 
-// "Courses" targets the STUDENT'S OWN semester when known; 4 is the fallback for guests
-// and profiles without a semester set.
+// "Courses" opens the browsable hub of ALL semesters + the University Requirements track;
+// the student then picks a semester to see its courses. (Previously it jumped straight to a
+// single hardcoded semester, which hid every other semester.)
 export const DEFAULT_SEMESTER = 4
-export const COURSES_HREF = `/semesters/${DEFAULT_SEMESTER}`
-export function coursesHref(semester?: number | null): string {
-  return `/semesters/${semester || DEFAULT_SEMESTER}`
+export const COURSES_HREF = '/courses'
+export function coursesHref(_semester?: number | null): string {
+  return '/courses'
 }
 
 const ADMIN_LINK: NavLink = { href: '/admin', label: 'Admin' }

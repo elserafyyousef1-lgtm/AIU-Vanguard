@@ -8,7 +8,7 @@ import { Search } from 'lucide-react'
 const COMMANDS = [
   { label:'🏠 Home', path:'/', group:'Navigation' },
   { label:'📊 Dashboard', path:'/dashboard', group:'Navigation' },
-  { label:'📚 Courses', path:'/semesters/4', group:'Navigation' },
+  { label:'📚 Courses', path:'/courses', group:'Navigation' },
   { label:'💬 Community', path:'/community', group:'Navigation' },
   { label:'✉️ Messages', path:'/messages', group:'Navigation' },
   { label:'⚙️ Settings', path:'/settings', group:'Account' },
