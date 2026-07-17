@@ -17,16 +17,9 @@ const REQ_SEM_ID = 9
 const REQ_ACCENT = '#38bdf8'
 
 // Each upcoming semester's focus — gives the locked cards identity and previews the
-// program arc instead of a wall of identical "No courses yet". Purely presentational.
-const SEM_THEMES: Record<number, string> = {
-  1: 'Foundations · Math & Programming',
-  2: 'Data Structures & Algorithms',
-  3: 'OOP · Discrete Math · Linear Algebra',
-  5: 'Operating Systems · Networks · SW Eng',
-  6: 'Compilers · AI · Web',
-  7: 'Distributed Systems · Vision · Security',
-  8: 'Graduation Project & Electives',
-}
+// program arc. Left EMPTY on purpose: fill ONLY with AIU's official per-semester subjects
+// once confirmed, so the site never displays an unverified curriculum. Purely presentational.
+const SEM_THEMES: Record<number, string> = {}
 
 export function SemestersGrid() {
   const supabase = createClient()
