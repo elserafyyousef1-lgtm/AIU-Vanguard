@@ -188,7 +188,7 @@ export default function SemesterPage() {
       }
     : null
 
-  if (!semId || semId < 1 || semId > 8) {
+  if (!semId || semId < 1 || semId > 9) {
     return <div style={center}>This semester doesn't exist.</div>
   }
 
@@ -200,10 +200,11 @@ export default function SemesterPage() {
           <ArrowLeft size={14} /> All semesters
         </Link>
         <h1 style={{ fontSize: 'clamp(22px,4vw,30px)', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--t)', marginBottom: 4 }}>
-          Semester {semId}
+          {semId === 9 ? 'University Requirements' : `Semester ${semId}`}
         </h1>
         <p style={{ color: 'var(--t3)', fontSize: 13.5, marginBottom: 24 }}>
-          {isStudent ? 'Enroll in your courses. You can cancel within 24 hours.' :
+          {semId === 9 ? 'Online university-requirement courses — taken across the whole program.' :
+           isStudent ? 'Enroll in your courses. You can cancel within 24 hours.' :
            role === 'doctor' ? 'Request to teach a course — the Owner will review your request.' :
            'Courses in this semester.'}
         </p>
