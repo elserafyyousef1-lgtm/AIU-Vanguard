@@ -13,6 +13,8 @@ interface Sem { id: number; title: string; count: number; codes: string[] }
 // general-requirement courses. It always renders as an open card next to Semester 8 —
 // even with 0 courses visible to the viewer (students see only published ones via RLS).
 const REQ_SEM_ID = 9
+// Distinct cool accent for the online-requirements track (vs the crimson CS semesters).
+const REQ_ACCENT = '#38bdf8'
 
 export function SemestersGrid() {
   const supabase = createClient()
@@ -82,7 +84,7 @@ function SemesterCard({ sem, isActive, isReq }: { sem: Sem; isActive: boolean; i
   return (
     <div style={{
       background: isActive ? 'var(--s2)' : 'var(--s1)',
-      border: isActive ? '1px solid var(--accent-br)' : '1px solid var(--br)',
+      border: isReq ? '1px solid rgba(56,189,248,0.35)' : isActive ? '1px solid var(--accent-br)' : '1px solid var(--br)',
       borderRadius: 16,
       padding: 20,
       position: 'relative',
@@ -96,7 +98,9 @@ function SemesterCard({ sem, isActive, isReq }: { sem: Sem; isActive: boolean; i
         <div style={{
           position:'absolute', top:-40, right:-40,
           width:120, height:120, borderRadius:'50%',
-          background:'radial-gradient(circle, rgba(224,38,75,0.15) 0%, transparent 70%)',
+          background: isReq
+            ? 'radial-gradient(circle, rgba(56,189,248,0.18) 0%, transparent 70%)'
+            : 'radial-gradient(circle, rgba(224,38,75,0.15) 0%, transparent 70%)',
           pointerEvents:'none',
         }} />
       )}
@@ -104,7 +108,7 @@ function SemesterCard({ sem, isActive, isReq }: { sem: Sem; isActive: boolean; i
       <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:12 }}>
         <div>
           <div style={{
-            fontFamily:'var(--font-mono)', fontSize:10, color: isActive ? 'var(--accent)' : 'var(--t3)',
+            fontFamily:'var(--font-mono)', fontSize:10, color: isReq ? REQ_ACCENT : isActive ? 'var(--accent)' : 'var(--t3)',
             letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:4,
           }}>
             {isReq ? 'Online · Requirements' : `Semester ${sem.id}`}
@@ -116,8 +120,8 @@ function SemesterCard({ sem, isActive, isReq }: { sem: Sem; isActive: boolean; i
         <div style={{
           display:'flex', alignItems:'center', justifyContent:'center',
           width:28, height:28, borderRadius:8,
-          background: isActive ? 'rgba(224,38,75,0.12)' : 'var(--s3)',
-          color: isActive ? 'var(--accent)' : 'var(--t3)',
+          background: isReq ? 'rgba(56,189,248,0.12)' : isActive ? 'rgba(224,38,75,0.12)' : 'var(--s3)',
+          color: isReq ? REQ_ACCENT : isActive ? 'var(--accent)' : 'var(--t3)',
         }}>
           {isReq ? <Globe size={14} /> : isActive ? <ChevronRight size={14} /> : <Lock size={12} />}
         </div>
@@ -129,15 +133,28 @@ function SemesterCard({ sem, isActive, isReq }: { sem: Sem; isActive: boolean; i
             <BookOpen size={12} /> {sem.count > 0 ? `${sem.count} ${sem.count === 1 ? 'course' : 'courses'} available` : 'University-wide online courses'}
           </p>
           <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-            {sem.codes.map(code => (
-              <span key={code} style={{
-                padding:'3px 9px', borderRadius:6,
-                background:'rgba(224,38,75,0.1)', border:'1px solid rgba(224,38,75,0.3)',
-                fontSize:11, fontWeight:700, color:'var(--accent)', fontFamily:'var(--font-mono)',
-              }}>
-                {code}
-              </span>
-            ))}
+            {sem.codes.length > 0
+              ? sem.codes.map(code => (
+                  <span key={code} style={{
+                    padding:'3px 9px', borderRadius:6,
+                    background: isReq ? 'rgba(56,189,248,0.1)' : 'rgba(224,38,75,0.1)',
+                    border: isReq ? '1px solid rgba(56,189,248,0.3)' : '1px solid rgba(224,38,75,0.3)',
+                    fontSize:11, fontWeight:700, color: isReq ? REQ_ACCENT : 'var(--accent)', fontFamily:'var(--font-mono)',
+                  }}>
+                    {code}
+                  </span>
+                ))
+              : isReq
+                ? ['Languages', 'Management', 'Law', 'Health', 'Skills'].map(cat => (
+                    <span key={cat} style={{
+                      padding:'3px 9px', borderRadius:6,
+                      background:'var(--s3)', border:'1px solid var(--br)',
+                      fontSize:11, fontWeight:600, color:'var(--t2)',
+                    }}>
+                      {cat}
+                    </span>
+                  ))
+                : null}
           </div>
         </>
       ) : (
