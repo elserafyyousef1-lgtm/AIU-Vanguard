@@ -21,6 +21,9 @@ export default function SettingsPage() {
   const [role, setRole] = useState<string | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [semester, setSemester] = useState<number | null>(null)
+  const [authEmail, setAuthEmail] = useState('')
+  const [googleLinked, setGoogleLinked] = useState(false)
+  const [linking, setLinking] = useState(false)
   const { settings, updateSettings } = useUserStore()
 
   useEffect(() => {
@@ -28,6 +31,9 @@ export default function SettingsPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login?redirect=/settings'); return }
       setUserId(user.id)
+      setAuthEmail(user.email || '')
+      // Which login methods are attached to THIS account (so we can offer to link Google).
+      setGoogleLinked((user.identities || []).some((i: any) => i.provider === 'google'))
       const { data } = await supabase
         .from('profiles')
         .select('full_name, nickname, role, avatar_url, semester')
@@ -71,6 +77,24 @@ export default function SettingsPage() {
     setSaving(false)
     if (error || contactErr) { toast.error('Could not save. Please try again.'); return }
     toast.success('Settings saved.')
+  }
+
+  // Link the SAME account to Google (OAuth proves the user owns the Google account, so this is
+  // secure — no auto-merge by a typed email). After linking, "Sign in with Google" resolves to
+  // this exact account instead of creating a new one. Requires Manual Linking enabled in Supabase.
+  const connectGoogle = async () => {
+    setLinking(true)
+    const { error } = await supabase.auth.linkIdentity({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/auth/callback?next=/settings` },
+    })
+    if (error) {
+      setLinking(false)
+      toast.error(/manual|linking|not enabled|disabled|403/i.test(error.message || '')
+        ? 'Google linking isn’t switched on yet — the owner needs to enable Manual Linking in Supabase.'
+        : 'Could not start Google connection. Please try again.')
+    }
+    // On success the browser redirects to Google, then back to /settings with Google linked.
   }
 
   const field = (label: string, icon: any, value: string, set: (v: string) => void, placeholder: string, hint?: string) => (
@@ -142,6 +166,32 @@ export default function SettingsPage() {
           <p style={{ fontSize: 12.5, color: 'var(--t3)', marginBottom: 18 }}>Private — visible only to you.</p>
           {field('Phone', <Phone size={13} />, phone, setPhone, '+20 1X XXX XXXX')}
           {field('Email', <Mail size={13} />, contactEmail, setContactEmail, 'you@gmail.com', 'Signed up with a student ID? Add your email here so you can receive notifications.')}
+        </section>
+
+        <section style={{ background: 'var(--s2)', border: '1px solid var(--br)', borderRadius: 16, padding: 22, marginBottom: 22 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--t)', marginBottom: 6 }}>Sign-in methods</h2>
+          <p style={{ fontSize: 12.5, color: 'var(--t3)', marginBottom: 16 }}>Connect Google to sign in with one tap — it stays the same account, with all your data.</p>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 12, background: 'var(--s3)', border: '1px solid var(--br)' }}>
+            <span style={{ width: 34, height: 34, borderRadius: 10, background: 'var(--s2)', border: '1px solid var(--br)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 15, fontWeight: 800, color: 'var(--t)' }}>G</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--t)' }}>Google</div>
+              <div style={{ fontSize: 12, color: 'var(--t3)' }}>{googleLinked ? 'Connected — you can sign in with Google.' : 'Not connected yet.'}</div>
+            </div>
+            {googleLinked ? (
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--accent-green)', flexShrink: 0 }}>✓ Connected</span>
+            ) : (
+              <button onClick={connectGoogle} disabled={linking} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 10, background: 'var(--accent)', color: 'white', border: 'none', fontSize: 13, fontWeight: 700, cursor: linking ? 'wait' : 'pointer', fontFamily: 'var(--font)', flexShrink: 0 }}>
+                {linking ? <Loader2 size={14} className="animate-spin" /> : null} Connect
+              </button>
+            )}
+          </div>
+
+          {!googleLinked && authEmail.toLowerCase().endsWith('@aiu.edu.eg') && /@(gmail|googlemail)\.com$/i.test(contactEmail.trim()) && (
+            <p style={{ fontSize: 12.5, color: '#38bdf8', marginTop: 12, lineHeight: 1.5 }}>
+              You saved a Google email. Tap <b>Connect</b> once (while signed in with your student ID) so that logging in with Google opens <b>this</b> account — never a new one.
+            </p>
+          )}
         </section>
 
         <section style={{ background: 'var(--s2)', border: '1px solid var(--br)', borderRadius: 16, padding: '14px 22px', marginBottom: 22 }}>
