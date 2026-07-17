@@ -16,10 +16,18 @@ const REQ_SEM_ID = 9
 // Distinct cool accent for the online-requirements track (vs the crimson CS semesters).
 const REQ_ACCENT = '#38bdf8'
 
-// Each upcoming semester's focus — gives the locked cards identity and previews the
-// program arc. Left EMPTY on purpose: fill ONLY with AIU's official per-semester subjects
-// once confirmed, so the site never displays an unverified curriculum. Purely presentational.
-const SEM_THEMES: Record<number, string> = {}
+// Each upcoming semester's focus — real core courses from AIU's official Computer Science
+// study plan (aiu.edu.eg). Previews the program arc instead of a wall of identical cards.
+// Semester 4 is active (its own DB courses), so it's intentionally absent here.
+const SEM_THEMES: Record<number, string> = {
+  1: 'Mathematics I · Physics · Structured Programming',
+  2: 'Mathematics II · Statistics · OOP · Discrete Math',
+  3: 'Linear Algebra · Data Structures · Artificial Intelligence',
+  5: 'Operating Systems · Computer Networks · Systems Analysis',
+  6: 'Design & Analysis of Algorithms · Cloud · Parallel Programming',
+  7: 'Data Mining · Specialization Track · Graduation Project I',
+  8: 'Theory of Computation & Compilers · Graduation Project II',
+}
 
 export function SemestersGrid() {
   const supabase = createClient()
