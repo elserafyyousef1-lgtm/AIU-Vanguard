@@ -32,6 +32,7 @@ const SEM_THEMES: Record<number, string> = {
 export function SemestersGrid() {
   const supabase = createClient()
   const [sems, setSems] = useState<Sem[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const load = async () => {
@@ -44,6 +45,7 @@ export function SemestersGrid() {
         return { id: s.id, title: s.title, count: mine.length, codes: mine.map((c: any) => c.code).slice(0, 4) }
       })
       setSems(list)
+      setLoading(false)
     }
     load()
   }, [])
@@ -69,7 +71,9 @@ export function SemestersGrid() {
         gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))',
         gap:16,
       }}>
-        {sems.map((sem, i) => {
+        {loading ? Array.from({ length: 9 }).map((_, i) => (
+          <div key={`sk-${i}`} className="skeleton" style={{ borderRadius: 16, minHeight: 140 }} />
+        )) : sems.map((sem, i) => {
           const isReq = sem.id === REQ_SEM_ID
           const isActive = isReq || sem.count > 0
           return (
