@@ -11,7 +11,7 @@ import { COURSES_HREF } from '@/lib/navigation'
 import toast from 'react-hot-toast'
 import { BookOpen, Clock, Lock, CheckCircle2, MessageSquare, Loader2, ArrowLeft, GraduationCap, Hourglass } from 'lucide-react'
 
-interface Course { id: string; code: string; title: string }
+interface Course { id: string; code: string; title: string; subtitle?: string | null }
 interface Enrollment { id: string; course: string; enrolled_at: string; completed: boolean }
 interface TeachReq { id: string; course_id: string; status: string }
 
@@ -30,7 +30,7 @@ export default function SemesterPage() {
 
   const load = useCallback(async () => {
     const { data: cs } = await supabase
-      .from('courses').select('id, code, title')
+      .from('courses').select('id, code, title, subtitle')
       .eq('semester_id', semId).order('code')
     setCourses((cs as any) || [])
     if (userId) {
@@ -225,6 +225,7 @@ export default function SemesterPage() {
                 <div style={{ flex: 1, minWidth: 140 }}>
                   <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>{c.code}</div>
                   <div style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--t)' }}>{c.title}</div>
+                  {c.subtitle && <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 2 }}>{c.subtitle}</div>}
                 </div>
                 {actionArea(c)}
               </div>
