@@ -82,7 +82,7 @@ export function SemestersGrid() {
 
 function SemesterCard({ sem, isActive, isReq }: { sem: Sem; isActive: boolean; isReq: boolean }) {
   return (
-    <div style={{
+    <div className={isActive ? 'card-lift' : undefined} style={{
       background: isActive ? 'var(--s2)' : 'var(--s1)',
       border: isReq ? '1px solid rgba(56,189,248,0.35)' : isActive ? '1px solid var(--accent-br)' : '1px solid var(--br)',
       borderRadius: 16,

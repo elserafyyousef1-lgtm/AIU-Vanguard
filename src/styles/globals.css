@@ -461,6 +461,16 @@ body {
 
 .card:hover { border-color: var(--br2); }
 
+/* Tactile lift for interactive cards (design-system utility — compose, don't hard-code).
+   Desktop hover raises + shadows the card; touch devices get a subtle press response instead
+   of a sticky hover; motion-reduced users get neither. (hover:hover) stops phones from
+   freezing the lifted state after a tap. Transform-only → GPU-composited, no layout reflow. */
+.card-lift { transition: transform .22s var(--ease-premium), box-shadow .22s var(--ease-premium), border-color .22s var(--ease); }
+@media (hover: hover) {
+  .card-lift:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+}
+.card-lift:active { transform: translateY(-1px) scale(0.994); }
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -515,6 +525,21 @@ body {
 .anim-2 { animation: fadeUp 0.4s var(--ease-out) 0.1s both; }
 .anim-3 { animation: fadeUp 0.4s var(--ease-out) 0.15s both; }
 .anim-4 { animation: fadeUp 0.4s var(--ease-out) 0.2s both; }
+
+/* Respect "reduce motion" AND lighten paint on low-end phones: stop infinite/heavy
+   animations (marquee, aurora, grain) and near-instant everything else — the UI stays
+   fully usable, just calm. Gated behind the media query, so it never affects other users. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  html { scroll-behavior: auto; }
+  .marquee-track { animation: none !important; }
+  .aurora::before, .aurora::after, .grain { display: none !important; }
+  .card-lift:hover, .card-lift:active { transform: none !important; }
+}
 
 /* ═══════════════════════════════════════════════════════════
    MATH / KATEX
