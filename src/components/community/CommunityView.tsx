@@ -47,6 +47,7 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
   const [csCodes, setCsCodes] = useState<string[]>([])
   const [reqCodes, setReqCodes] = useState<string[]>([])
   const [showReqs, setShowReqs] = useState(false)
+  const [showCourses, setShowCourses] = useState(false)
 
   // Compact tag-button style (shared by the composer). Requirement courses (not in the
   // static COURSES map) fall back to the sky accent used by the requirements track.
@@ -352,45 +353,64 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
           </p>
         </div>
 
-        {/* Course navigation — General + CS courses; University Requirements collapse under one toggle */}
-        <div className="anim-1" style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:28, alignItems:'center' }}>
-          <Link href="/community" style={{
-            padding:'7px 14px', borderRadius:9, fontSize:13, fontWeight:600, textDecoration:'none',
-            background: !courseFilter ? 'var(--accent)' : 'var(--s2)',
-            color: !courseFilter ? 'white' : 'var(--t2)',
-            border:'1px solid var(--br)',
-          }}>General</Link>
-          {csCodes.map(slug => (
-            <Link key={slug} href={`/community/${slug}`} style={{
+        {/* Course navigation — General + the active course stay inline; every course lives behind ONE
+            "Browse courses" toggle (grouped: CS courses, then University Requirements) so the row can
+            never become a wall no matter how many courses are added later. */}
+        <div className="anim-1" style={{ marginBottom:28 }}>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+            <Link href="/community" style={{
               padding:'7px 14px', borderRadius:9, fontSize:13, fontWeight:600, textDecoration:'none',
-              background: courseFilter === slug ? (COURSES[slug]?.color || 'var(--accent)') : 'var(--s2)',
-              color: courseFilter === slug ? 'white' : 'var(--t2)',
-              border:'1px solid var(--br)',
-            }}>{slug}</Link>
-          ))}
-          {reqCodes.length > 0 && (
-            <>
-              <button
-                onClick={() => setShowReqs(v => !v)}
-                style={{
-                  display:'inline-flex', alignItems:'center', gap:6, padding:'7px 13px', borderRadius:9,
-                  fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'var(--font)',
-                  background: (showReqs || (courseFilter && reqCodes.includes(courseFilter))) ? 'rgba(56,189,248,0.12)' : 'var(--s2)',
-                  color: (showReqs || (courseFilter && reqCodes.includes(courseFilter))) ? '#38bdf8' : 'var(--t2)',
-                  border:'1px solid ' + ((showReqs || (courseFilter && reqCodes.includes(courseFilter))) ? 'rgba(56,189,248,0.35)' : 'var(--br)'),
-                }}
-              >
-                🌐 University Requirements {showReqs ? '▾' : `· ${reqCodes.length}`}
+              background: !courseFilter ? 'var(--accent)' : 'var(--s2)',
+              color: !courseFilter ? 'white' : 'var(--t2)', border:'1px solid var(--br)',
+            }}>General</Link>
+            {courseFilter && (
+              <span style={{
+                padding:'7px 14px', borderRadius:9, fontSize:13, fontWeight:700,
+                background: COURSES[courseFilter]?.color || '#38bdf8', color:'white', border:'1px solid transparent',
+              }}>{courseFilter}</span>
+            )}
+            {(csCodes.length + reqCodes.length) > 0 && (
+              <button onClick={() => setShowCourses(v => !v)} style={{
+                display:'inline-flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:9,
+                fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'var(--font)',
+                background:'var(--s2)', color:'var(--t2)', border:'1px solid var(--br)',
+              }}>
+                {showCourses ? 'Hide courses ▴' : `Browse courses · ${csCodes.length + reqCodes.length}`}
               </button>
-              {(showReqs || (courseFilter && reqCodes.includes(courseFilter))) && reqCodes.map(slug => (
-                <Link key={slug} href={`/community/${slug}`} style={{
-                  padding:'6px 11px', borderRadius:8, fontSize:12, fontWeight:600, textDecoration:'none',
-                  background: courseFilter === slug ? '#38bdf8' : 'var(--s3)',
-                  color: courseFilter === slug ? 'white' : 'var(--t3)',
-                  border:'1px solid var(--br)',
-                }}>{slug}</Link>
-              ))}
-            </>
+            )}
+          </div>
+
+          {showCourses && (
+            <div style={{ marginTop:12, padding:14, borderRadius:14, background:'var(--s1)', border:'1px solid var(--br)', maxHeight:260, overflowY:'auto' }}>
+              {csCodes.length > 0 && (
+                <>
+                  <div style={{ fontFamily:'var(--font-mono)', fontSize:10, color:'var(--t3)', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:8 }}>Courses</div>
+                  <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom: reqCodes.length ? 16 : 0 }}>
+                    {csCodes.map(slug => (
+                      <Link key={slug} href={`/community/${slug}`} style={{
+                        padding:'6px 12px', borderRadius:8, fontSize:12.5, fontWeight:600, textDecoration:'none',
+                        background: courseFilter === slug ? (COURSES[slug]?.color || 'var(--accent)') : 'var(--s2)',
+                        color: courseFilter === slug ? 'white' : 'var(--t2)', border:'1px solid var(--br)',
+                      }}>{slug}</Link>
+                    ))}
+                  </div>
+                </>
+              )}
+              {reqCodes.length > 0 && (
+                <>
+                  <div style={{ fontFamily:'var(--font-mono)', fontSize:10, color:'#38bdf8', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:8 }}>University Requirements</div>
+                  <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                    {reqCodes.map(slug => (
+                      <Link key={slug} href={`/community/${slug}`} style={{
+                        padding:'6px 11px', borderRadius:8, fontSize:12, fontWeight:600, textDecoration:'none',
+                        background: courseFilter === slug ? '#38bdf8' : 'var(--s2)',
+                        color: courseFilter === slug ? 'white' : 'var(--t3)', border:'1px solid var(--br)',
+                      }}>{slug}</Link>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           )}
         </div>
 
