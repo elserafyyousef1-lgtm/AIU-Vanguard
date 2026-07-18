@@ -632,5 +632,196 @@ flowchart TD
 
 ---
 
-> **Continued:** Sections **11 (AI) → 30 (Appendix)** are appended in the next commits.
+---
+
+# 11. AI System
+
+The **Vanguard AI** tutor answers questions **grounded on the specific course** — a mix of
+curated per‑course knowledge and **RAG** (retrieval‑augmented generation) over staff‑uploaded
+materials.
+
+```mermaid
+flowchart LR
+  Q["Student question (AR/EN)"] --> P["AIPanel (client)"]
+  P --> API["POST /api/ai-tutor (server)"]
+  API --> EMB["embedText(question) → Gemini embeddings (768d)"]
+  EMB --> RET["match document_chunks by vector similarity (pgvector)"]
+  RET --> CTX["Build prompt: curated course knowledge + retrieved chunks"]
+  CTX --> GEM["Gemini gemini-2.5-flash"]
+  GEM --> ANS["Answer → streamed/returned to AIPanel"]
+```
+
+| Concern | Implementation |
+|---|---|
+| **Model** | `gemini-2.5-flash` (chosen after `gemini-flash-latest` resolved to a slow "thinking" model; latency dropped ~30–50s → ~3s). |
+| **Course knowledge** | `AIPanel` maps a course to a curated prompt (`CSE221_AI_PROMPT`, `AIE121_AI_PROMPT`, `MAT312_AI_PROMPT`) so the tutor knows the syllabus even without uploads. |
+| **RAG** | `src/lib/ai/embeddings.ts` (`embedText`, `toVectorLiteral`) + `chunk.ts`; chunks live in `document_chunks (embedding vector(768))`; retrieval by similarity, scoped to the course. |
+| **Picker** | `VanguardAI` lists only `has_ai` courses, with search when the list is long. |
+| **Fallbacks/resilience** | Embedding fetch has a **3s `AbortSignal.timeout`** so RAG never hangs the answer; the tutor still responds from curated knowledge if retrieval fails. |
+| **Safety** | The tutor runs server‑side (Gemini key never shipped); it can only see what RLS allows; draft‑course chunks are hidden from students. |
+| **Future** | Response streaming, multi‑turn memory, citations to source chunks, per‑answer feedback. |
+
+---
+
+# 12. APIs Documentation
+
+Because RLS is the backend, there are **few** endpoints — only where a **server secret** or
+heavy server work is required.
+
+### `POST /api/ai-tutor` (Route Handler)
+- **Purpose:** answer a course question via RAG + Gemini.
+- **Auth:** user session (RLS bounds any DB read); Gemini key is server‑only.
+- **Input:** `{ course, messages/question }`. **Output:** the tutor's answer.
+- **Flow:** embed → retrieve chunks → build prompt (curated + retrieved) → Gemini → return.
+- **Security:** secret server‑side; timeouts; RLS‑scoped retrieval.
+
+### `POST /api/documents/ingest` (Route Handler)
+- **Purpose:** staff upload a course PDF → extract text (`unpdf`) → chunk → embed → store.
+- **Auth:** **staff only** (`owner/admin/doctor`), re‑checked server‑side + RLS.
+- **Input:** `{ course, title, fileUrl, moduleId? }`. **Output:** `{ documentId, chunksStored, truncated }`.
+- **Security:** **SSRF allow‑list** — `fileUrl` must be `https`, the Supabase storage host, and a `/storage/` path; `MAX_CHUNKS=80` caps cost; status tracked (`processing/ready/failed`).
+
+### Edge Function `notify-email` (Deno)
+- **Purpose:** send a single notification email via Brevo.
+- **Auth:** `x-webhook-secret` (403 otherwise); invoked by the `on_notification_email` trigger via `pg_net`.
+- **Logic:** load notification (service role) → pick **deliverable** email (contact_email > non‑`@aiu.edu.eg` auth email; else skip) → Brevo → mark `email_sent_at` (**idempotent**).
+
+### Edge Function `broadcast-email` (Deno)
+- **Purpose:** send a brand‑designed announcement to a chosen list.
+- **Auth:** `x-webhook-secret` (403 otherwise).
+- **Input:** `{ userIds: string[] }`. **Output:** `{ sent[], skipped[] }`.
+- **Security:** secret‑gated; reuses the deliverability rule; premium HTML matches the brand.
+
+### Supabase RPCs (SQL functions callable from the client)
+`my_contact`, `update_my_contact`, `my_final_grades`, `course_final_grades`,
+`set_course_capabilities`, `admin_student_ids`, `internal_config` (server‑only). Each is
+RLS/`SECURITY DEFINER`‑bounded.
+
+---
+
+# 13. Frontend Documentation
+
+## 13.1 Architecture & hierarchy
+- **App Router** pages compose **domain components** (`layout/`, `course/`, `community/`,
+  `dashboard/`, `ai/`, `ui/`).
+- **`useAuth()`** is the central hook: returns `{ userId, role, isOwner/isAdmin/isStaff/…,
+  myCourses, profile }` from a single `getSession()` + profile read.
+- **Navigation** is defined once in `src/lib/navigation.ts` (`mainNavLinks`, `coursesHref`,
+  account links) and consumed by `SiteNav`/`SiteNavView` — no page hardcodes its nav.
+
+## 13.2 State
+| Store | Holds |
+|---|---|
+| `useUserStore` (Zustand) | user settings (sound/notifications/email), hydrated from `profiles.settings`. |
+| `useUIStore` (Zustand) | command‑palette open state, etc. |
+| `notificationStore` (tab‑wide singleton) | **one** fetch + **one** realtime channel + **one** seen‑ids memory per tab → sound fires only for genuinely new notifications, never on navigation. |
+
+## 13.3 Styling, theme, responsiveness, a11y, performance
+- **Tokens** in `globals.css`: radii, easing, shadows, fonts (Sora/Instrument Sans/JetBrains
+  Mono), an **Obsidian + Crimson** palette, **light/dark** via `.dark`/`.light` variable sets.
+- **Responsive:** the nav collapses to a hamburger < 1024px; grids use `auto-fill minmax`;
+  verified 375px with **no horizontal overflow**.
+- **Accessibility:** `:focus-visible` ring; `prefers-reduced-motion` disables the marquee,
+  aurora, grain, and calms transitions; 44px‑ish touch targets.
+- **Performance/feel:** `card-lift` (GPU transform hover/press), **skeleton loaders**,
+  `optimizePackageImports` for `lucide-react`/`framer-motion`, pre‑rendered KaTeX.
+
+---
+
+# 14. Backend Documentation
+
+There is no traditional server tier — **the "backend" is the database + edge**:
+- **Business logic** lives in **RLS policies, triggers, and SECURITY DEFINER functions**
+  (capability resolution, GPA, notifications, publishing rules).
+- **Services/helpers** in `src/lib`: Supabase clients (`browser`, `server`, `middleware`),
+  AI (`embeddings`, `chunk`), `sound`, `navigation`, `errorReporter` (client errors →
+  `app_errors`, deduped + capped + signed‑in‑only), `z` (z‑index scale).
+- **Validation:** client‑side (forms) **and** server‑side (route handlers, RLS `WITH CHECK`,
+  DB `CHECK` constraints) — never trust the client.
+- **Error handling:** `error.tsx` boundaries + `errorReporter`; edge functions swallow
+  send‑failures so a failed email never breaks the DB write.
+
+---
+
+# 15. Performance
+
+| Optimization | Effect |
+|---|---|
+| **Hybrid session** (`getSession` for display) | Nav latency **240–1500ms → 0–10ms** (measured). |
+| **RLS `initplan`** (`(select auth.uid())`) | `auth.uid()` evaluated **once per query**, not per row. |
+| **FK covering indexes** | Faster joins / policy sub‑selects. |
+| **Pre‑rendered KaTeX** | Zero client math cost; instant formulas. |
+| `optimizePackageImports` | Smaller bundles for icon/animation libs. |
+| **Skeleton loaders** | Better perceived performance (no empty flash). |
+| **Tab‑wide notification singleton** | One fetch + one channel per tab (was: refetch + resubscribe per navigation). |
+| **Static prerender** of `/` and `/courses` | Fast first paint; grid hydrates client‑side. |
+
+**Bottlenecks / future:** no CDN‑level caching of DB reads (RLS makes them per‑user); AI
+latency bound by Gemini; add pagination on community/notifications at scale (§20).
+
+---
+
+# 16. Deployment
+
+```mermaid
+flowchart LR
+  Dev["Local dev (next dev)"] --> Git["git push → GitHub (AIU-Vanguard)"]
+  Dev --> Vd["vercel --prod → Vercel production"]
+  Vd --> CDN["aiu-hub.vercel.app (edge/CDN)"]
+  Dev --> Mig["apply_migration → Supabase (prod DB)"]
+  Mig --> Mir["mirror into supabase/migrations/ → GitHub"]
+  CDN --> SB["Supabase (DB/Auth/Storage/Realtime/Edge Fns)"]
+```
+
+| Concern | How |
+|---|---|
+| **Build** | `next build` (tsc + Next); `/` and `/courses` prerender static. |
+| **Front‑end host** | Vercel production (manual `vercel --prod --yes`); aliased to `aiu-hub.vercel.app`. |
+| **Source** | GitHub `elserafyyousef1-lgtm/AIU-Vanguard` (no secrets; `.env.example` placeholders only). |
+| **Database** | Supabase; schema changes via `apply_migration`, **mirrored** into `supabase/migrations/` for history. |
+| **Env** | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (client‑safe); `GEMINI/BREVO/service‑role/webhook‑secret` server‑only (Vercel + Supabase secrets). |
+| **Headers** | `next.config.js` security headers on every route. |
+| **Monitoring/Logging** | `app_errors` table (client), Supabase edge/DB logs, Vercel deployment logs. |
+| **Rollback** | Vercel keeps every deployment (instant promote/rollback); DB migrations are reversible (drop policy/column, delete seed). |
+
+---
+
+# 17. Challenges We Faced
+
+| Challenge | Cause | How found | Fix | Lesson |
+|---|---|---|---|---|
+| **Pentest false positives** | Harness counted HTTP‑403 error bodies as "1 row = success" | Suspiciously many "CRITICALs" | Rewrote **status‑aware** (`readBlocked`/`writeBlocked` by HTTP status), re‑ran → 0 real vulns | A 403 is *blocked*, not success. |
+| **Public grid broke for guests** | New `courses_read` called `can_manage_course_id`, which the `anon` role couldn't execute → whole query errored | Real‑page verify: "0 Live Courses", Sem 4 empty | Guarded the manager branch behind `auth.uid()` + **granted execute** on the helper to `anon` (returns false) | Postgres does **not** guarantee AND/OR short‑circuit in RLS. |
+| **Requirements card → broken page** | `/semesters/[id]` guard rejected `id > 8`; the track is `id=9` | Self‑review after shipping | Allow `id=9`, title it "University Requirements" | Adding a 9th entity ripples into hardcoded bounds. |
+| **Seeding spam risk** | `notify_new_course`/`notify_new_semester` fire on INSERT → 16 courses × students emails | Trigger inspection before seeding | Disable triggers during seed; then re‑designed to fire **on publish** | Suppress side effects while seeding. |
+| **Google duplicate account** | ID email ≠ Gmail → no auto‑link → new account | User reported | **Connect Google** (`linkIdentity`) | Unverified contact email can't safely auto‑merge. |
+| **Notification sounds on navigation** | Bell refetched + reset "seen" memory on every page | Sound on every nav | **Tab‑wide singleton** store | Realtime state belongs to the tab, not the mount. |
+| **Mobile crash on the bell** | `createPortal` missing its container arg | Crash on tap (mobile) | Add `document.body` container | Portals need a mount node. |
+| **Raw inline math** | Only `$$…$$` was pre‑rendered; `$…$` shipped raw | Visual review | Pre‑render inline `$…$` too | Cover both math delimiters. |
+| **Stored XSS (profile links)** | `javascript:` URLs in social links | Security review | DB `CHECK` regex **+** render `safeUrl()` guard | Defense in depth. |
+| **SSRF (ingest)** | server‑fetched arbitrary `fileUrl` | Security review | Host **allow‑list** | Never fetch attacker‑controlled URLs unbounded. |
+| **Avatar defacement** | avatars bucket write not folder‑scoped | Storage RLS review | Lock INSERT/UPDATE to `{uid}/` | Scope storage to the owner's folder. |
+| **`UID` readonly in bash** | test scripts set `UID` (readonly) | Script errors | Rename to `SID/USERID` | Mind shell reserved vars. |
+
+---
+
+# 18. Features Timeline (chronological)
+
+| Phase | Delivered |
+|---|---|
+| **0 · Origin** | Single‑course study package + AI helper. |
+| **1 · Platform pivot** | 8‑semester DB‑driven grid; platform‑level landing copy. |
+| **2 · Content** | ML/DB/Differential/Networks courses; pre‑rendered KaTeX; mock exams, flashcards. |
+| **3 · Identity/roles** | Capability‑based authz; role dashboards; delegation + audit + expiry + presets. |
+| **4 · AI** | Gemini tutor; RAG ingest + `document_chunks`; per‑course knowledge; model/latency fix. |
+| **5 · Social** | Community (posts/comments/likes, per‑course); student↔staff messaging; notifications (in‑app + email). |
+| **6 · Hardening** | RC hardening; status‑aware pentest → 0 vulns; XSS/SSRF fixes; security headers; CTO sign‑off → **v1.0**; GitHub push. |
+| **7 · University Requirements** | `published` flag + RLS; 16 requirement courses (hidden); content/AI/enrollment gated; notify‑on‑publish; `/semesters/9`. |
+| **8 · Product/design** | Requirements card identity; `card-lift` + motion/perf; skeletons; **real AIU curriculum**; scalable community selector; Courses hub. |
+| **9 · Auth & comms** | Secure **Connect Google** (`linkIdentity`); brand **broadcast‑email**; avatars storage hardening. |
+| **10 · Documentation** | This Project Bible. |
+
+---
+
+> **Continued:** Sections **19 (Tech Debt) → 30 (Appendix)** are appended in the next commits.
 > This file is the living, official engineering documentation of AIU Vanguard.
