@@ -250,16 +250,25 @@ export default function ProfilePage() {
       <main style={{ maxWidth:680, margin:'0 auto', padding:'40px 20px' }}>
         <div style={{
           background:'var(--s2)', border:'1px solid var(--br)',
-          borderRadius:20, padding:28,
+          borderRadius:20, padding:28, overflow:'hidden',
         }}>
-          {/* Avatar + name */}
-          <div style={{ display:'flex', alignItems:'center', gap:18, marginBottom:20 }}>
+          {/* Cover banner — role-tinted, full-bleed via negative margins */}
+          <div style={{
+            height:110, margin:'-28px -28px 0', position:'relative',
+            background:`linear-gradient(135deg, ${meta.color}2e, transparent 58%), var(--s3)`,
+          }}>
+            <div style={{ position:'absolute', inset:0, pointerEvents:'none',
+              background:`radial-gradient(120% 140% at 12% 0%, ${meta.color}26, transparent 55%)` }} />
+          </div>
+          {/* Avatar + name (avatar overlaps the banner) */}
+          <div style={{ display:'flex', alignItems:'flex-end', gap:18, marginTop:-46, marginBottom:20, position:'relative' }}>
             <div style={{ position:'relative', flexShrink:0 }}>
               <div style={{
-                width:88, height:88, borderRadius:'50%', overflow:'hidden',
+                width:92, height:92, borderRadius:'50%', overflow:'hidden',
                 background:'linear-gradient(135deg, var(--accent), var(--accent-2))',
                 display:'flex', alignItems:'center', justifyContent:'center',
                 color:'white', fontWeight:800, fontSize:34,
+                border:'4px solid var(--s2)', boxShadow:'0 6px 20px rgba(0,0,0,0.35)',
               }}>
                 {profile.avatar_url
                   ? <img src={profile.avatar_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
@@ -276,7 +285,7 @@ export default function ProfilePage() {
                 </label>
               )}
             </div>
-            <div style={{ minWidth:0 }}>
+            <div style={{ minWidth:0, paddingBottom:4 }}>
               <h1 style={{ fontSize:24, fontWeight:800, color:'var(--t)', letterSpacing:'-0.02em' }}>
                 {profile.full_name}
               </h1>
