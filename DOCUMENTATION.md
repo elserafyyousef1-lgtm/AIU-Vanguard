@@ -550,12 +550,16 @@ erDiagram
 | Anyone | Trigger mass email | `POST /functions/v1/broadcast-email` | webhook secret | 🔒 403 |
 | Anyone | Clickjack | iframe embed | `frame-ancestors 'none'` | 🔒 blocked |
 | Anyone | SSRF via ingest | `fileUrl=http://169.254.169.254` | host allow‑list | 🔒 blocked |
-| **Any** | Brute force / cost abuse | hammer `/api/ai-tutor`, auth | **No app rate limiting yet** | ⚠️ **gap (see §19)** |
+| **Any** | Brute force / cost abuse | hammer `/api/ai-tutor`, ingest | **DB‑backed global rate limit** (`rate_limit_hit`, 20/min AI · 10/5min ingest); GoTrue rate‑limits auth | ✅ mitigated |
 
 ## 8.3 Known gaps / improvements
-- **Rate limiting** (AI tutor, ingest, auth) — recommend Vercel Firewall / middleware / Supabase.
-- **`course-materials` bucket is public** — draft file URLs are RLS‑hidden, but make it private + signed URLs for defense in depth.
-- **Leaked‑password protection** — enable in Supabase Auth (a dashboard toggle).
+- ✅ **Rate limiting** — now a **DB‑backed global limiter** (`rate_limit_hit`) on `/api/ai-tutor`
+  (20/min/user) and ingest (10/5min/user), correct across all serverless instances.
+- **`course-materials` bucket is public** — *accepted low‑risk*: object **listing is blocked**
+  (no public SELECT policy), draft file URLs are RLS‑hidden, and published materials are meant
+  to be served by URL. Future defense‑in‑depth: private bucket + signed URLs (requires switching
+  module display from `getPublicUrl` to on‑demand `createSignedUrl`).
+- **Leaked‑password protection** — enable in Supabase Auth (a **dashboard toggle**, owner action).
 
 ---
 
@@ -831,7 +835,7 @@ flowchart LR
 |---|---|---|---|
 | **Per‑page `SiteNav` + nav‑auth snapshot** | SiteNav re‑mounts per navigation; a snapshot prevents guest‑flicker | Stale display identity if a public page adopts SiteNav | Move SiteNav to a single **root layout** → delete the snapshot. |
 | **Dual course‑content sources** | Static `src/lib/data/courses.ts` (rich study HTML/AI prompts) **and** the DB `courses` table | Drift between the two (e.g. CSE311 title) | Migrate rich content into the DB (or a CMS) as the single source. |
-| **No app‑level rate limiting** | Not built yet | Cost/DoS on `/api/ai-tutor`, ingest, auth | Vercel Firewall / middleware / Supabase rate limits. |
+| ~~No rate limiting~~ **(resolved)** | — | — | ✅ DB‑backed global limiter shipped (`rate_limit_hit`). |
 | **`course-materials` bucket public** | Simpler URLs | Draft file readable if URL leaks | Private bucket + signed URLs. |
 | **Inline styles** | Speed + zero runtime CSS cost | Verbosity; no native `:hover` | Extract repeated patterns into utilities/components. |
 | **No automated tests** | Solo build velocity | Regressions | Playwright E2E + pgTAP for RLS (§21). |

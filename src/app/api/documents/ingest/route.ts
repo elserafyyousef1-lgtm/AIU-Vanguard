@@ -29,6 +29,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Only staff can upload course materials.' }, { status: 403 })
   }
 
+  // Ingestion runs embeddings (cost) — global rate limit: 10 per 5 minutes per user.
+  const { data: rlOk } = await supabase.rpc('rate_limit_hit', { p_bucket: `ingest:${user.id}`, p_max: 10, p_window: 300 })
+  if (rlOk === false) {
+    return NextResponse.json({ error: 'Too many uploads. Please wait a few minutes and try again.' }, { status: 429 })
+  }
+
   let body: { course?: string; title?: string; fileUrl?: string; moduleId?: string }
   try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 }) }
 

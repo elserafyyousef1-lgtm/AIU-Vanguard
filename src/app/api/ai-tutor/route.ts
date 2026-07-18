@@ -12,22 +12,11 @@ import { createClient } from '@/lib/supabase/server'
 export const runtime = 'nodejs'
 export const maxDuration = 30
 
-// ── Simple in-memory rate limiting (per IP) ────────────────
+// Rate limiting is enforced in Postgres (public.rate_limit_hit) so the limit is GLOBAL
+// across all serverless instances — an in-memory Map would only limit per instance, which
+// an attacker rotating instances could bypass. 20 requests / 60s / user.
 const RATE_LIMIT = 20
-const RATE_WINDOW = 60_000
-const hits = new Map<string, { count: number; resetAt: number }>()
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now()
-  const entry = hits.get(ip)
-  if (!entry || now > entry.resetAt) {
-    hits.set(ip, { count: 1, resetAt: now + RATE_WINDOW })
-    return true
-  }
-  if (entry.count >= RATE_LIMIT) return false
-  entry.count++
-  return true
-}
+const RATE_WINDOW_SECONDS = 60
 
 // Pinned to a specific fast model. The `gemini-flash-latest` alias was silently repointed
 // by Google to gemini-3.5-flash, which "thinks" by default and took 30–50s per reply.
@@ -51,7 +40,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Please sign in to use the AI tutor.' }, { status: 401 })
   }
 
-  if (!checkRateLimit(user.id)) {
+  // Global (cross-instance) rate limit via Postgres. Fail-open if the limiter itself errors.
+  const { data: rlOk } = await supabase.rpc('rate_limit_hit', {
+    p_bucket: `ai:${user.id}`, p_max: RATE_LIMIT, p_window: RATE_WINDOW_SECONDS,
+  })
+  if (rlOk === false) {
     return NextResponse.json(
       { error: 'Too many requests. Please wait a moment and try again.' },
       { status: 429 }
