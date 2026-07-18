@@ -374,7 +374,7 @@ export default function MessagesPage() {
                     // "Seen" under the last message I sent, once the other party has read it (Teams/iMessage style).
                     const lastMine = [...messages].reverse().find(m => m.sender_id === userId)
                     if (lastMine && lastMine.read_at) return (
-                      <div style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--t3)', marginTop: 3, marginRight: 2 }}>
+                      <div style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: '#4a9eff', marginTop: 3, marginRight: 2 }}>
                         <CheckCheck size={13} /> Seen
                       </div>
                     )
@@ -389,12 +389,20 @@ export default function MessagesPage() {
                       <button onClick={() => pickImage(null)} style={{ position: 'absolute', top: 4, right: 4, width: 24, height: 24, borderRadius: 7, background: 'rgba(0,0,0,0.6)', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={14} /></button>
                     </div>
                   )}
-                  <div style={{ padding: '12px 16px', display: 'flex', gap: 10, alignItems: 'center' }}>
+                  <div style={{ padding: '12px 16px', display: 'flex', gap: 10, alignItems: 'flex-end' }}>
                     <label style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0, cursor: 'pointer', background: 'var(--s3)', border: '1px solid var(--br)', color: 'var(--t2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Send image">
                       <ImageIcon size={17} />
                       <input type="file" accept="image/*" onChange={e => pickImage(e.target.files?.[0] || null)} style={{ display: 'none' }} />
                     </label>
-                    <input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') sendMessage() }} placeholder="Type a message..." style={{ flex: 1, minWidth: 0, background: 'var(--s3)', border: '1px solid var(--br)', borderRadius: 22, padding: '10px 16px', color: 'var(--t)', fontSize: 14, fontFamily: 'var(--font)', outline: 'none' }} />
+                    <textarea
+                      value={text}
+                      onChange={e => setText(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
+                      onInput={e => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 120) + 'px' }}
+                      placeholder="Type a message..."
+                      rows={1}
+                      style={{ flex: 1, minWidth: 0, background: 'var(--s3)', border: '1px solid var(--br)', borderRadius: 18, padding: '10px 16px', color: 'var(--t)', fontSize: 14, fontFamily: 'var(--font)', outline: 'none', resize: 'none', maxHeight: 120, overflowY: 'auto', lineHeight: 1.4, boxSizing: 'border-box' }}
+                    />
                     <button onClick={sendMessage} disabled={(!text.trim() && !imgFile) || sending} style={{ width: 42, height: 42, borderRadius: '50%', flexShrink: 0, border: 'none', background: (text.trim() || imgFile) ? 'var(--accent)' : 'var(--s3)', color: (text.trim() || imgFile) ? 'white' : 'var(--t3)', cursor: (text.trim() || imgFile) ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{sending ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />}</button>
                   </div>
                 </div>
