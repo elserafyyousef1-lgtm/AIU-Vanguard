@@ -9,6 +9,7 @@ import { AIE121_AI_PROMPT } from '@/lib/data/aie121'
 import { buildSystemPrompt } from '@/lib/data/aiPersona'
 import { COURSES } from '@/lib/data/courses'
 import type { AIMessage } from '@/types'
+import { RichText } from './RichText'
 
 interface Props {
   courseSlug: string
@@ -291,9 +292,9 @@ export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
                 border: msg.role === 'assistant' ? '1px solid var(--br)' : 'none',
                 color: msg.role === 'user' ? 'white' : 'var(--t)',
                 fontSize:13.5, lineHeight:1.6,
-                whiteSpace:'pre-wrap', wordBreak:'break-word',
+                whiteSpace: msg.role === 'assistant' ? 'normal' : 'pre-wrap', wordBreak:'break-word',
               }}>
-                {msg.content}
+                {msg.role === 'assistant' ? <RichText content={msg.content} /> : msg.content}
               </div>
               {msg.role === 'assistant' && (
                 <button
