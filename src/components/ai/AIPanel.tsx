@@ -19,6 +19,15 @@ interface Props {
 
 const MAX_HISTORY = 20
 
+// Study-companion follow-ups shown under the latest answer — turns the tutor from a
+// chatbot into an active study partner. Bilingual prompts so the reply matches the student.
+const STUDY_ACTIONS: { label: string; prompt: string }[] = [
+  { label: '🔁 Simpler', prompt: 'اشرح اللي فات ده تاني بطريقة أبسط خطوة بخطوة. / Explain that again, more simply, step by step.' },
+  { label: '📝 Example', prompt: 'اديني مثال محلول بالكامل على النقطة دي بكل الخطوات. / Give me one fully worked example on this, showing every step.' },
+  { label: '🎯 Quiz me', prompt: 'اسألني سؤال واحد بأسلوب الامتحان على الموضوع ده، واستنى إجابتي قبل ما تكشف الحل. / Ask me ONE exam-style question on this topic and wait for my answer before revealing the solution.' },
+  { label: '⚠️ Exam trap', prompt: 'إيه أكتر غلطة أو فخ بيقع فيه الطلبة في الموضوع ده في الامتحان وإزاي أتجنبه؟ / What is the most common mistake or exam trap on this topic, and how do I avoid it?' },
+]
+
 export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
   // Session storage key — unique per course, cleared when the site is fully closed
   const storageKey = `vanguard-ai-chat-${courseSlug}`
@@ -357,6 +366,23 @@ export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
               >
                 <Sparkles size={14} /> Continue with Vanguard AI Pro
               </button>
+            </div>
+          )}
+
+          {/* Study-companion follow-ups under the latest answer */}
+          {messages.length > 0 && messages[messages.length - 1].role === 'assistant' && !isTyping && !limitHit && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 2 }}>
+              {STUDY_ACTIONS.map(a => (
+                <button
+                  key={a.label}
+                  onClick={() => sendMessage(a.prompt)}
+                  style={{
+                    padding: '5px 11px', borderRadius: 20,
+                    background: 'var(--s3)', border: '1px solid var(--br)',
+                    color: 'var(--t2)', fontSize: 11.5, cursor: 'pointer', fontFamily: 'var(--font)',
+                  }}
+                >{a.label}</button>
+              ))}
             </div>
           )}
 
