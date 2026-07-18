@@ -823,5 +823,368 @@ flowchart LR
 
 ---
 
-> **Continued:** Sections **19 (Tech Debt) → 30 (Appendix)** are appended in the next commits.
-> This file is the living, official engineering documentation of AIU Vanguard.
+---
+
+# 19. Technical Debt
+
+| Debt | Why it exists | Risk | Planned fix |
+|---|---|---|---|
+| **Per‑page `SiteNav` + nav‑auth snapshot** | SiteNav re‑mounts per navigation; a snapshot prevents guest‑flicker | Stale display identity if a public page adopts SiteNav | Move SiteNav to a single **root layout** → delete the snapshot. |
+| **Dual course‑content sources** | Static `src/lib/data/courses.ts` (rich study HTML/AI prompts) **and** the DB `courses` table | Drift between the two (e.g. CSE311 title) | Migrate rich content into the DB (or a CMS) as the single source. |
+| **No app‑level rate limiting** | Not built yet | Cost/DoS on `/api/ai-tutor`, ingest, auth | Vercel Firewall / middleware / Supabase rate limits. |
+| **`course-materials` bucket public** | Simpler URLs | Draft file readable if URL leaks | Private bucket + signed URLs. |
+| **Inline styles** | Speed + zero runtime CSS cost | Verbosity; no native `:hover` | Extract repeated patterns into utilities/components. |
+| **No automated tests** | Solo build velocity | Regressions | Playwright E2E + pgTAP for RLS (§21). |
+| **Manual deploys** | Owner‑driven | Human step | Wire GitHub → Vercel CI. |
+
+---
+
+# 20. Scalability Plan
+
+| Scale | What breaks first | How to scale |
+|---|---|---|
+| **10** | Nothing. | — |
+| **100** | Nothing meaningful. | Enable Supabase connection pooler. |
+| **10,000** | Community/notifications unbounded reads; AI cost. | Paginate feeds/notifications; index hot paths; cache curated AI knowledge; rate‑limit AI. |
+| **100,000** | DB connections; Realtime fan‑out; storage egress. | Pooler + read replicas; scope Realtime channels tightly; CDN for public assets; move `course-materials` to signed URLs. |
+| **1,000,000** | Single‑region Postgres; per‑user uncacheable reads; email volume. | Partition/shard hot tables; multi‑region reads; queue + batch emails; edge‑cache public course catalog; dedicated vector DB for RAG. |
+
+**Design that already scales:** DB‑driven grid (add rows, no deploy), capability model,
+publish‑gated visibility, tab‑wide realtime singleton, static prerender of public pages.
+
+---
+
+# 21. Testing
+
+- **Current strategy:** manual testing by role + **runtime RLS verification** using an
+  impersonation harness (`set local role authenticated` + `request.jwt.claims` inside a
+  rolled‑back transaction — proves what a given user can/can't see **without** creating
+  accounts or sending emails), plus **adversarial pentesting** (status‑aware forged REST
+  calls). Every change is gated on `tsc --noEmit` + `next build` green + 0 console errors +
+  real‑page verification by the correct role.
+- **Edge cases covered:** draft visibility (0 rows to students), privilege escalation
+  (blocked), anon public grid, storage folder scoping, email deliverability (synthetic IDs
+  skipped), notify‑on‑publish (no spam).
+- **Gaps → recommended:** **Playwright** E2E (login, enroll, post, message, publish);
+  **pgTAP**/SQL tests asserting each RLS policy; a CI pipeline running both on every PR;
+  load tests for the AI route.
+
+---
+
+# 22. Codebase Walkthrough (for a new senior dev)
+
+1. **Start at `src/middleware.ts`** → understand session refresh + which paths are gated.
+2. **`src/lib/supabase/`** → three clients: `client.ts` (browser, anon+JWT), `server.ts`
+   (server components/route handlers), `middleware.ts` (session). Everything else reads through these.
+3. **`src/hooks/useAuth.ts`** → the identity/role/capabilities the UI reacts to.
+4. **`src/lib/navigation.ts`** → the one nav definition.
+5. **A feature to trace:** the **semester grid** — `src/components/layout/SemestersGrid.tsx`
+   fetches `semesters`+`courses` (RLS‑filtered) and renders; click → `/semesters/[id]`
+   (`src/app/semesters/[id]/page.tsx`) lists courses with role‑aware actions → `/courses/[slug]`
+   (`src/app/courses/[slug]/page.tsx`, DB‑driven) → tabs (`CourseClient`).
+6. **Authorization to trust:** open `supabase/migrations/` and read the `courses_read`,
+   `weeks_read`, `modules_read` policies + the capability functions — **this is where security
+   lives**, not in the components.
+7. **Realtime & notifications:** `src/lib/notificationStore.ts` (tab‑wide singleton) +
+   `src/components/ui/NotificationBell.tsx`.
+8. **AI:** `src/app/api/ai-tutor/route.ts` + `src/lib/ai/*` + `src/components/ai/*`.
+
+**Golden rule:** if you want to know whether something is *allowed*, read the **RLS policy**,
+not the React code.
+
+---
+
+# 23. Design Decisions
+
+- **Identity:** "Dark Luxury Academy" — **Obsidian (`#0d0d11`) + Crimson (`#e0264b`) + Bone
+  (`#f4f3f6`)**; a cool **sky** accent distinguishes the online **University Requirements**
+  track from the crimson CS core.
+- **Typography:** **Sora** (display), **Instrument Sans** (body), **JetBrains Mono** (code/
+  eyebrows), **Noto Kufi Arabic** (Arabic).
+- **Motion:** subtle, purposeful — `card-lift` (tactile hover/press), reveal‑on‑scroll,
+  marquees; all respect `prefers-reduced-motion`.
+- **UX principles:** DB‑driven (content, not code, drives the UI); progressive disclosure
+  (collapse the community course list, requirements behind a toggle); honest empty states
+  ("Unlocks soon" + the real upcoming subjects); never show fabricated data (the semester
+  curriculum was sourced from AIU's **official study‑plan PDF**).
+- **Consistency:** a token system + shared utilities so every surface feels like one product,
+  laptop and phone.
+
+---
+
+# 24. Future Roadmap
+
+- **Short‑term:** enable Manual Linking + Leaked‑Password protection; rate limiting; private
+  `course-materials` bucket; automated tests + CI.
+- **Medium‑term:** AI streaming + citations + memory; analytics dashboard; per‑track curricula
+  (Big Data / Computer Vision / Software Engineering); scheduled publishing; richer gradebook.
+- **Long‑term / enterprise:** multi‑department/multi‑university tenancy; SSO; mobile app;
+  read replicas + multi‑region; a public API; instructor content authoring CMS.
+
+---
+
+# 25. Interview Questions (curated, project‑specific)
+
+> A curated set of hard questions with model answers. (Extendable toward the full 100.)
+
+**Q1. Where does authorization live, and why not in the API?**
+*Answer:* In **PostgreSQL RLS** (+ capability functions). *Why correct:* there is essentially
+no API tier; every client query runs as `authenticated` and is filtered by policies using
+`auth.uid()`, so you **can't forget an auth check on an endpoint that doesn't exist** — the DB
+is the single, unavoidable gate.
+
+**Q2. Explain the capability model vs plain roles.**
+*Answer:* Power on a course = `role_default_caps(role)` **∪** delegated
+`course_assignments.capabilities[]`, resolved by `has_cap_id(course_id, cap)` inside RLS.
+*Why correct:* it enables **least‑privilege delegation** (grant "grade" on one course to a TA)
+that roles alone can't express, and it's auditable + expirable.
+
+**Q3. Why default `courses.published = true`?**
+*Answer:* to guarantee **zero regression** — all existing/new courses stay visible unless
+explicitly hidden; requirement courses are seeded `false`. *Why correct:* hiding is an
+explicit, safe‑direction decision; a `false` default would have hidden live courses on deploy.
+
+**Q4. A student can't see a draft course — but could they read its `modules` directly?**
+*Answer:* No. `weeks_read`/`modules_read`/`document_chunks_read`/`course_documents_read` were
+hardened to require the **parent course be published** (or the viewer manages it).
+*Why correct:* content visibility must **follow** course visibility, or the flag is theater.
+
+**Q5. Why did the public grid break for logged‑out users after adding RLS?**
+*Answer:* `courses_read` reached `can_manage_course_id()`, which `anon` had no execute grant
+on, so the whole query errored; **Postgres doesn't guarantee AND/OR short‑circuit** in planned
+RLS. *Fix:* guard behind `auth.uid()` **and** grant execute to `anon` (returns false).
+
+**Q6. Explain the hybrid session and why it's still secure.**
+*Answer:* `getSession()` reads the cookie locally for **display** (~0ms) instead of a
+network `getUser()`; **every query is still RLS‑enforced with the JWT** and `middleware.ts`
+gates routes. *Why correct:* display identity being slightly optimistic can't grant data —
+the DB does.
+
+**Q7. How do you prevent notification/email spam when building 16 draft courses?**
+*Answer:* suppress the notify triggers during the seed, and re‑design `notify_new_course` to
+fire **on publish transition** (`NEW.published AND (INSERT OR OLD.published=false)`), not on
+insert. *Why correct:* announcements should fire when a thing becomes **visible**.
+
+**Q8. Why not auto‑link a Google login to an account by the email saved in Settings?**
+*Answer:* that email is **unverified** (typed), so auto‑merge would let anyone hijack an
+account by typing a victim's email. **`linkIdentity`** requires an OAuth round‑trip that
+**proves ownership**. *Why correct:* trust must be established, not asserted.
+
+**Q9. How does RAG grounding work here?**
+*Answer:* staff PDFs → text (`unpdf`) → chunks → **Gemini embeddings (768d)** → `document_chunks`
+(pgvector); at query time, embed the question, retrieve similar chunks **scoped to the course**,
+and prepend them + curated course knowledge to the Gemini prompt.
+
+**Q10. What's the `initplan` RLS optimization?**
+*Answer:* wrapping `auth.uid()` as `(select auth.uid())` so Postgres evaluates it **once per
+query** (an InitPlan) instead of once per row — a large speedup on big scans.
+
+**Q11. Why is `capability_audit` immutable, and how?**
+*Answer:* accountability — capability changes must be tamper‑evident. A `BEFORE UPDATE/DELETE`
+trigger (`capability_audit_no_edit`) **raises**, so rows can only be inserted.
+
+**Q12. How is the AI tutor prevented from leaking data?**
+*Answer:* it runs **server‑side** (Gemini key never shipped), retrieves only RLS‑allowed
+chunks, and draft‑course chunks are hidden from students — so it can't surface what the user
+can't already access.
+
+**Q13. Walk the request flow for enrolling in a course.**
+*Answer:* client `insert enrollments` (RLS `WITH CHECK`: `auth.uid()=user_id` **and the course
+is published**) → 24h self‑cancel window (`enr_delete` policy checks the interval) → dashboards
+read via `my_final_grades` for grades.
+
+**Q14. How do you keep the notification sound from firing on every navigation?**
+*Answer:* a **tab‑wide singleton** store: one fetch + one realtime channel + one "seen‑ids"
+memory for the whole tab; sound fires only for a genuinely new row, never on mount/reload.
+
+**Q15. Why pre‑render KaTeX at build time?**
+*Answer:* rendering hundreds of formulas client‑side is slow; build‑time HTML is instant and
+injected as **author‑controlled static** content (no user input → no XSS).
+
+**Q16. What stops SSRF in the PDF ingest route?**
+*Answer:* an **allow‑list** — `fileUrl` must be `https`, the exact Supabase storage host, and a
+`/storage/` path — so the server can't be tricked into fetching `169.254.169.254` etc.
+
+**Q17. Storage: how is a student stopped from overwriting another's avatar?**
+*Answer:* the avatars bucket INSERT/UPDATE policies require
+`(storage.foldername(name))[1] = auth.uid()` — you can only write your own folder.
+
+**Q18. What breaks first at 10k users and how do you fix it?**
+*Answer:* unbounded community/notification reads + AI cost → paginate + index + rate‑limit +
+cache curated knowledge.
+
+**Q19. Why Supabase over a custom backend for a solo builder?**
+*Answer:* it collapses auth + relational DB + storage + realtime + functions into one provider
+with **RLS as authz**, removing an entire API tier and a class of authorization bugs.
+
+**Q20. How is email delivered reliably and without leaking secrets?**
+*Answer:* a DB trigger → `pg_net` → an **Edge Function** (`notify-email`) that reads the
+recipient with the service role, picks a **deliverable** address, sends via Brevo, and marks
+`email_sent_at` (**idempotent**); the client never sees Brevo/service keys.
+
+**Q21. Why does the `/courses` route reuse `SemestersGrid`?**
+*Answer:* DRY + it's already DB‑driven, so the hub scales automatically as semesters fill —
+no bespoke page to maintain.
+
+**Q22. How would you add a new role (e.g. "grader")?**
+*Answer:* add to the `user_role` enum, define its `role_default_caps`, and — because RLS reads
+capabilities, not hardcoded roles — most policies **just work**; only UI role labels need touching.
+
+**Q23. What's the biggest architectural risk?**
+*Answer:* RLS subtlety (policy ordering, function‑execute grants, short‑circuit assumptions) —
+mitigated by the impersonation test harness and adversarial verification.
+
+**Q24. How do you verify a security fix without real users or emails?**
+*Answer:* impersonate a role inside a **rolled‑back transaction** (`set local role authenticated`
++ `request.jwt.claims`), assert row counts, then `ROLLBACK` — no persisted data, no emails.
+
+**Q25. Why is the client Supabase anon key safe to ship?**
+*Answer:* it only grants the `anon`/`authenticated` roles, which are **fully bounded by RLS**;
+it's a public identifier, not a secret. The service role key (which bypasses RLS) is
+server‑only.
+
+---
+
+# 26. Knowledge Check (verify your own understanding)
+
+1. Draw the path from `auth.uid()` to "can this user grade course X?".
+2. Name every table whose read policy depends on `courses.published`.
+3. Explain why `getSession()` doesn't weaken security.
+4. What exactly fires when the owner flips a course to published?
+5. Why did adding `id=9` require a code change in `/semesters/[id]`?
+6. How would a pentester try to read a draft course's PDF — and why does it fail?
+7. What's the difference between `has_cap` and `has_cap_id`, and why both?
+8. Where would you add pagination first, and why?
+9. Why is `notify_new_course` on `AFTER INSERT OR UPDATE` now?
+10. Reproduce the anon‑grid regression and explain the two‑part fix.
+11. What makes `capability_audit` tamper‑evident?
+12. Why is `course-materials` being public a (small) risk, and the mitigation?
+13. How does Connect Google avoid account hijacking?
+14. What's the deliverability rule for emails, and why skip `@aiu.edu.eg`?
+15. Which parts of the app are static‑prerendered, and which are client‑fetched?
+
+---
+
+# 27. Glossary
+
+| Term | Meaning (in this project) |
+|---|---|
+| **RLS** | Row‑Level Security — PostgreSQL policies that filter rows per user; the authorization boundary. |
+| **Policy** | A rule (`USING`/`WITH CHECK`) attached to a table for a command (SELECT/INSERT/…). |
+| **SECURITY DEFINER** | A function that runs with its **owner's** rights (used for helpers RLS calls); paired with a locked `search_path`. |
+| **Capability** | A fine‑grained power on a course (`grade`, `structure`, `post`, …). |
+| **`has_cap_id`** | Resolver: does the current user hold a capability on a course (by id)? |
+| **InitPlan** | A subquery evaluated once per query; wrapping `auth.uid()` as `(select auth.uid())` triggers it. |
+| **PKCE** | The OAuth code‑exchange flow used by Google sign‑in / `linkIdentity`. |
+| **`linkIdentity`** | Supabase call that attaches a new provider to the **current** account (secure linking). |
+| **RAG** | Retrieval‑Augmented Generation — grounding the LLM on retrieved course chunks. |
+| **pgvector** | Postgres extension for vector similarity (RAG). |
+| **Edge Function** | A Deno function on Supabase (server‑side; holds secrets). |
+| **`pg_net`** | Postgres extension to make async HTTP from the DB (triggers → Edge Function). |
+| **Webhook secret** | Shared secret gating the email Edge Functions (403 without it). |
+| **Idempotent** | Safe to run twice (e.g. `email_sent_at` prevents double‑send). |
+| **Upsert** | Insert‑or‑update (`upsert:true` on avatar upload). |
+| **SSR / CSR** | Server‑ / Client‑Side Rendering. |
+| **Hybrid session** | Fast local `getSession()` for display; RLS/middleware for enforcement. |
+| **Draft/Publish** | `courses.published` gating student visibility. |
+
+---
+
+# 28. Final Technical Evaluation
+
+*Evaluated as a FAANG/senior panel would.*
+
+**Strengths**
+- **Security‑first architecture:** RLS‑as‑authz + capabilities + immutable audit is genuinely
+  senior‑level; the draft/publish hardening across content/AI/enrollment is thorough.
+- **Correct instincts:** status‑aware pentesting, notify‑on‑publish, secure account linking,
+  defense‑in‑depth (DB CHECK + render guard), impersonation‑based verification.
+- **Product maturity:** real curriculum, cohesive design system, mobile‑verified, scalable
+  UI patterns.
+- **Operational honesty:** migrations mirrored, secrets server‑only, reversible changes.
+
+**Weaknesses**
+- No automated tests / CI; no rate limiting; one public bucket; dual content sources; some
+  App‑Router server power unused; manual deploys.
+
+**Scores (indicative)**
+| Dimension | Score | Note |
+|---|---|---|
+| Architecture | **9/10** | RLS‑centric, capability model, clean layering. |
+| Code quality | **8/10** | Readable, consistent; inline‑style verbosity. |
+| Security | **9/10** | Strong; add rate limiting + private bucket. |
+| Scalability | **8/10** | Scales far on Postgres; needs pagination/caching plan. |
+| Maintainability | **8/10** | One nav source, DB‑driven; add tests. |
+| Production readiness | **8.5/10** | Live, hardened; CI + tests would seal it. |
+| **Overall** | **8.5/10** | A portfolio‑grade, production system a company could continue. |
+
+---
+
+# 29. Rebuild Guide (from zero)
+
+1. **Scaffold:** `npx create-next-app@14 --ts` (App Router). Add `@supabase/ssr`,
+   `@supabase/supabase-js`, `zustand`, `lucide-react`, `framer-motion`, `katex`, `unpdf`.
+2. **Supabase project:** create it; note URL + anon + service keys.
+3. **Schema:** run `supabase/migrations/` in order (tables → enums → functions → RLS policies
+   → triggers → seeds). Enable `pgvector` and `pg_net`.
+4. **Auth:** enable Email + Google providers; set the callback to `/auth/callback`; enable
+   **Manual Linking**; enable Leaked‑Password protection.
+5. **Storage:** create buckets `avatars` (public, folder‑scoped), `post-images`, `post-files`
+   (public, staff‑write), `course-materials` (→ prefer private), `submissions` (private,
+   per‑user); apply the storage policies.
+6. **Edge Functions:** deploy `notify-email` + `broadcast-email`; set `BREVO_API_KEY`,
+   `BREVO_SENDER_EMAIL/NAME`, and the webhook secret (`private.config`).
+7. **Env:** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (client);
+   `GEMINI_API_KEY`, service role, Brevo, webhook secret (server).
+8. **App:** build `src/lib/supabase/*` clients, `middleware.ts`, `useAuth`, `navigation`, the
+   grid → semester → course → tabs flow, community, messages, notifications, dashboards,
+   settings, the AI route + RAG.
+9. **Verify:** `tsc --noEmit` + `next build`; impersonation‑test RLS; adversarial pentest.
+10. **Deploy:** GitHub + `vercel --prod`; mirror migrations; smoke‑test by role.
+
+---
+
+# 30. Final Appendix
+
+### Configuration files
+| File | Role |
+|---|---|
+| `next.config.js` | Security headers, image `remotePatterns`, `optimizePackageImports`. |
+| `src/middleware.ts` | Session refresh + route gating. |
+| `tsconfig.json` | TS config + path aliases (`@/…`). |
+| `.env.example` | Placeholder env vars (no secrets). |
+| `supabase/migrations/*` | The database's source of truth. |
+
+### Environment variables
+| Var | Where | Secret? |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | client + server | No (public). |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client + server | No (RLS‑bounded). |
+| `GEMINI_API_KEY` | server (`/api/ai-tutor`) | **Yes.** |
+| `SUPABASE_SERVICE_ROLE_KEY` | edge functions | **Yes (bypasses RLS).** |
+| `BREVO_API_KEY` / `BREVO_SENDER_EMAIL` / `BREVO_SENDER_NAME` | edge functions | **Yes.** |
+| `email_webhook_secret` | `private.config` (DB) | **Yes.** |
+
+### Useful commands
+```bash
+# dev
+npm run dev
+# quality gates
+npx tsc --noEmit && npx next build
+# deploy
+vercel --prod --yes
+# db (via Supabase MCP / CLI): apply a migration, then mirror it into supabase/migrations/
+```
+
+### New‑developer onboarding checklist
+- [ ] Read this file (§1–§10 first).
+- [ ] Get Supabase access + a test account per role.
+- [ ] Run the app locally; trace the grid → course flow.
+- [ ] Read the `courses_read` + capability policies in `supabase/migrations/`.
+- [ ] Make a trivial change; run the quality gates; verify by role.
+- [ ] Never add a data path without the matching RLS policy.
+
+---
+
+*End of the AIU Vanguard Project Bible. This document is maintained alongside the code and is
+the official engineering reference for the project.*
