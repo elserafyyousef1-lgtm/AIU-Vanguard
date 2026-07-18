@@ -16,6 +16,24 @@ import type { Post } from '@/types'
 // under one toggle instead of flooding the community with tags.
 const REQ_SEM_ID = 9
 
+// Relative "time ago" — feels alive, like any social feed (falls back to a date after a week).
+function timeAgo(iso: string): string {
+  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
+  if (s < 60) return 'now'
+  const m = Math.floor(s / 60); if (m < 60) return `${m}m`
+  const h = Math.floor(m / 60); if (h < 24) return `${h}h`
+  const d = Math.floor(h / 24); if (d < 7) return `${d}d`
+  return new Date(iso).toLocaleDateString('en-EG', { month: 'short', day: 'numeric' })
+}
+
+// Render post text with clickable links; all non-URL text stays React-escaped (XSS-safe).
+function Linkify({ text }: { text: string }) {
+  const parts = text.split(/(https?:\/\/[^\s]+)/g)
+  return <>{parts.map((p, i) => /^https?:\/\//.test(p)
+    ? <a key={i} href={p} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', wordBreak: 'break-all' }}>{p}</a>
+    : p)}</>
+}
+
 export function CommunityView({ courseFilter }: { courseFilter: string | null }) {
   const [posts, setPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -595,9 +613,20 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
 
         {/* Feed */}
         {loading ? (
-          <div style={{ textAlign:'center', padding:40, color:'var(--t3)' }}>
-            <Loader2 size={24} style={{ animation:'spin 1s linear infinite', margin:'0 auto 12px' }} />
-            Loading posts...
+          <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+            {[0,1,2].map(i => (
+              <div key={i} style={{ background:'var(--s2)', border:'1px solid var(--br)', borderRadius:16, padding:20 }}>
+                <div style={{ display:'flex', gap:12, marginBottom:14 }}>
+                  <div className="skeleton" style={{ width:44, height:44, borderRadius:'50%' }} />
+                  <div style={{ flex:1 }}>
+                    <div className="skeleton" style={{ width:'40%', height:12, borderRadius:6, marginBottom:8 }} />
+                    <div className="skeleton" style={{ width:'25%', height:10, borderRadius:6 }} />
+                  </div>
+                </div>
+                <div className="skeleton" style={{ width:'92%', height:12, borderRadius:6, marginBottom:8 }} />
+                <div className="skeleton" style={{ width:'68%', height:12, borderRadius:6 }} />
+              </div>
+            ))}
           </div>
         ) : posts.length === 0 ? (
           <div style={{ textAlign:'center', padding:60, color:'var(--t3)' }}>
@@ -610,7 +639,7 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
               const liked = post.post_likes?.some((l: any) => l.user_id === user?.id)
               const likeCount = post.post_likes?.length || 0
               const course = post.course_tag ? COURSES[post.course_tag] : null
-              const relTime = new Date(post.created_at).toLocaleDateString('en-EG', { month:'short', day:'numeric' })
+              const relTime = timeAgo(post.created_at)
 
               return (
                 <div key={post.id} id={`post-${post.id}`} style={{
@@ -737,7 +766,7 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
                   ) : (
                     post.content && (
                       <p style={{ fontSize:15, color:'var(--t)', lineHeight:1.6, marginBottom:14, whiteSpace:'pre-wrap' }}>
-                        {post.content}
+                        <Linkify text={post.content} />
                       </p>
                     )
                   )}
@@ -877,6 +906,7 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
                                   {cb && (
                                     <span style={{ fontSize:10, fontWeight:700, color:cb.color }}>{cb.label}</span>
                                   )}
+                                  <span style={{ fontSize:11, color:'var(--t3)' }}>{timeAgo(c.created_at)}</span>
                                   {(c.user_id === user?.id || isStaff) && (
                                     <button
                                       onClick={() => deleteComment(c.id)}
