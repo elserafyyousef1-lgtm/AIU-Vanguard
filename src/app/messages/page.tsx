@@ -8,16 +8,29 @@ import { useAuth } from '@/hooks/useAuth'
 import { SiteNavView } from '@/components/layout/SiteNavView'
 import { RoleGuide } from '@/components/ui/RoleGuide'
 import toast from 'react-hot-toast'
-import { Loader2, Send, Plus, ArrowLeft, MessageSquare, Trash2, Image as ImageIcon, X, Heart } from 'lucide-react'
+import { Loader2, Send, Plus, ArrowLeft, MessageSquare, Trash2, Image as ImageIcon, X, Heart, CheckCheck } from 'lucide-react'
 
 interface Party { id: string; full_name: string; role: string; avatar_url?: string }
 interface Conversation {
   id: string; student_id: string; staff_id: string; topic: string | null
   updated_at: string; student: Party; staff: Party
+  last_message?: string | null; last_sender_id?: string | null
 }
 interface Message {
   id: string; conversation_id: string; sender_id: string
   content: string; image_url?: string | null; liked_at?: string | null; created_at: string
+  read_at?: string | null
+}
+
+// Compact relative time for the conversation list (Teams/WhatsApp style).
+const relTime = (iso?: string): string => {
+  if (!iso) return ''
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
+  if (mins < 1) return 'now'
+  if (mins < 60) return `${mins}m`
+  if (mins < 1440) return `${Math.floor(mins / 60)}h`
+  if (mins < 10080) return `${Math.floor(mins / 1440)}d`
+  return new Date(iso).toLocaleDateString('en-EG', { month: 'short', day: 'numeric' })
 }
 
 const roleLabel = (r?: string) =>
@@ -120,8 +133,10 @@ export default function MessagesPage() {
     if (!userId) return
     const channel = supabase
       .channel('messages-rt')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload: any) => {
-        if (activeId && payload.new.conversation_id === activeId) loadMessages(activeId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload: any) => {
+        // '*' (not just INSERT) so read receipts (read_at) and likes update live too.
+        const convId = payload.new?.conversation_id || payload.old?.conversation_id
+        if (activeId && convId === activeId) loadMessages(activeId)
         loadConvos()
       })
       .subscribe()
@@ -276,8 +291,13 @@ export default function MessagesPage() {
                   }}>
                     <Avatar party={p} />
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontWeight: (c as any)._unread ? 800 : 600, color: 'var(--t)', fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.full_name}</div>
-                      <div style={{ fontSize: 12, color: 'var(--t3)' }}>{roleLabel(p.role)}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ flex: 1, fontWeight: (c as any)._unread ? 800 : 600, color: 'var(--t)', fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.full_name}</div>
+                        <span style={{ flexShrink: 0, fontSize: 11, color: (c as any)._unread ? 'var(--accent)' : 'var(--t3)' }}>{relTime(c.updated_at)}</span>
+                      </div>
+                      <div style={{ fontSize: 12.5, color: (c as any)._unread ? 'var(--t)' : 'var(--t3)', fontWeight: (c as any)._unread ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {c.last_message ? `${c.last_sender_id === userId ? 'You: ' : ''}${c.last_message}` : roleLabel(p.role)}
+                      </div>
                     </div>
                     {(c as any)._unread > 0 && (
                       <span style={{
@@ -350,6 +370,16 @@ export default function MessagesPage() {
                       </div>
                     )
                   })}
+                  {(() => {
+                    // "Seen" under the last message I sent, once the other party has read it (Teams/iMessage style).
+                    const lastMine = [...messages].reverse().find(m => m.sender_id === userId)
+                    if (lastMine && lastMine.read_at) return (
+                      <div style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--t3)', marginTop: 3, marginRight: 2 }}>
+                        <CheckCheck size={13} /> Seen
+                      </div>
+                    )
+                    return null
+                  })()}
                 </div>
 
                 <div style={{ borderTop: '1px solid var(--br)', flexShrink: 0, background: 'var(--s2)' }}>
