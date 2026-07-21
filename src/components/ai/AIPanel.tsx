@@ -1,15 +1,29 @@
 'use client'
 // src/components/ai/AIPanel.tsx
 import { useState, useRef, useEffect } from 'react'
-import { X, Send, Sparkles, Copy, Check } from 'lucide-react'
+import { X, Send, Sparkles, Copy, Check, MessageSquare, Target, FileText, Image as ImageIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { QuizView } from './QuizView'
+import { ExamView } from './ExamView'
 import { CSE221_AI_PROMPT } from '@/lib/data/cse221'
 import { MAT312_AI_PROMPT } from '@/lib/data/mat312'
 import { AIE121_AI_PROMPT } from '@/lib/data/aie121'
 import { buildSystemPrompt } from '@/lib/data/aiPersona'
 import { COURSES } from '@/lib/data/courses'
-import type { AIMessage } from '@/types'
+import type { AIMessage, AISource } from '@/types'
 import { RichText } from './RichText'
+
+// Decode the base64 (UTF-8) X-Sources header the streaming route sends → citation list.
+function decodeSources(header: string | null): AISource[] | undefined {
+  if (!header) return undefined
+  try {
+    const bytes = Uint8Array.from(atob(header), c => c.charCodeAt(0))
+    const arr = JSON.parse(new TextDecoder().decode(bytes))
+    return Array.isArray(arr) ? arr : undefined
+  } catch {
+    return undefined
+  }
+}
 
 interface Props {
   courseSlug: string
@@ -46,11 +60,14 @@ export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
   })
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
+  const [isStreaming, setIsStreaming] = useState(false)  // stays the lock for the WHOLE stream
   const [showChips, setShowChips] = useState(true)
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
+  const [mode, setMode] = useState<'chat' | 'quiz' | 'exam'>('chat')  // chat = tutor, quiz = MCQ drill, exam = full mock exam
   const [usePro, setUsePro] = useState(false)            // false = free (Gemini), true = pro (Claude)
   const [limitHit, setLimitHit] = useState(false)        // free limit reached → offer upgrade
   const [lastQuestion, setLastQuestion] = useState('')   // resend this when upgrading
+  const [imgData, setImgData] = useState<{ mime: string; b64: string; url: string } | null>(null)  // attached image (Vision)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -70,12 +87,15 @@ export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isTyping])
 
-  // Persist the conversation for this session (cleared when the site is closed)
+  // Persist the conversation for this session (cleared when the site is closed).
+  // Strip attached image data URLs — they're large (megabytes of base64) and would blow the
+  // sessionStorage quota, which would stop the WHOLE transcript from persisting.
   useEffect(() => {
     if (typeof window === 'undefined') return
     try {
       if (messages.length > 0) {
-        sessionStorage.setItem(storageKey, JSON.stringify(messages))
+        const slim = messages.map(({ image, ...m }) => m)
+        sessionStorage.setItem(storageKey, JSON.stringify(slim))
       }
     } catch {
       // storage full or unavailable — fail silently
@@ -87,16 +107,24 @@ export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
     if (messages.length > 0) setShowChips(false)
   }, [])
 
-  const sendMessage = async (text: string, forcePro?: boolean) => {
-    if (!text.trim() || isTyping) return
+  const sendMessage = async (text: string, forcePro?: boolean, reuseLast?: boolean) => {
+    const img = reuseLast ? null : imgData
+    if ((!text.trim() && !img) || isTyping || isStreaming) return
     setShowChips(false)
     setLimitHit(false)
 
-    const pro = forcePro ?? usePro
-    const userMsg: AIMessage = { role: 'user', content: text, timestamp: new Date().toISOString() }
-    const newMsgs = [...messages, userMsg].slice(-MAX_HISTORY)
+    // An attached image always goes to the free Gemini (Vision) route — keep the pro flag in
+    // sync with the actual endpoint so error handling matches.
+    const pro = (forcePro ?? usePro) && !img
+    // reuseLast: resend the existing last user turn (used when upgrading to Pro after the
+    // free limit) — do NOT append a second, duplicate user bubble.
+    const userMsg: AIMessage = { role: 'user', content: text, timestamp: new Date().toISOString(), image: img?.url }
+    const newMsgs = (reuseLast ? [...messages] : [...messages, userMsg]).slice(-MAX_HISTORY)
     setMessages(newMsgs)
     setInput('')
+    setImgData(null)
+    // Snap the auto-grown textarea back to one row (clearing value doesn't fire onInput).
+    if (inputRef.current) inputRef.current.style.height = 'auto'
     setLastQuestion(text)
     setIsTyping(true)
 
@@ -111,18 +139,14 @@ export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
           system: systemPrompt,
           messages: newMsgs.map(m => ({ role: m.role, content: m.content })),
           courseSlug,
+          image: img ? { mimeType: img.mime, data: img.b64 } : undefined,
         }),
       })
 
-      const data = await res.json()
-
+      // Errors come back as JSON (rate limit, config, etc.) BEFORE any stream starts.
       if (!res.ok) {
-        // Free tier limit reached → offer to upgrade to Claude (don't show a raw error)
-        if (!pro && res.status === 429) {
-          setLimitHit(true)
-          return
-        }
-        // Pro tier limit reached → fall back to free so work doesn't stop
+        const data = await res.json().catch(() => ({} as any))
+        if (!pro && res.status === 429) { setLimitHit(true); return }
         if (pro && (res.status === 429 || data.error === 'limit_reached')) {
           setUsePro(false)
           setMessages(prev => [
@@ -138,19 +162,40 @@ export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
         }
         setMessages(prev => [
           ...prev,
-          {
-            role: 'assistant',
-            content: data.error || 'Something went wrong. Please try again.',
-            timestamp: new Date().toISOString(),
-          },
+          { role: 'assistant', content: data.error || 'Something went wrong. Please try again.', timestamp: new Date().toISOString() },
         ])
         return
       }
 
-      setMessages(prev => [
-        ...prev,
-        { role: 'assistant', content: data.reply, timestamp: new Date().toISOString() },
-      ])
+      const ctype = res.headers.get('content-type') || ''
+      if (ctype.includes('application/json')) {
+        // Non-streaming route (e.g. the pro tutor) — one reply.
+        const data = await res.json()
+        setMessages(prev => [...prev, { role: 'assistant', content: data.reply, sources: data.sources, timestamp: new Date().toISOString() }])
+      } else if (res.body) {
+        // Streaming — the answer types in word-by-word as it arrives.
+        // Grounding sources ride in a header, so they're ready before the first token.
+        const sources = decodeSources(res.headers.get('X-Sources'))
+        // Swap the typing dots for a live bubble, but keep isStreaming engaged as the lock
+        // for the ENTIRE stream — the send guard, button, and follow-up chips all respect it,
+        // so no second send can fire mid-stream and scramble `copy[copy.length-1]`.
+        setIsTyping(false)
+        setIsStreaming(true)
+        setMessages(prev => [...prev, { role: 'assistant', content: '', sources, timestamp: new Date().toISOString() }])
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let acc = ''
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          acc += decoder.decode(value, { stream: true })
+          setMessages(prev => {
+            const copy = [...prev]
+            copy[copy.length - 1] = { ...copy[copy.length - 1], content: acc }
+            return copy
+          })
+        }
+      }
     } catch {
       setMessages(prev => [
         ...prev,
@@ -158,6 +203,7 @@ export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
       ])
     } finally {
       setIsTyping(false)
+      setIsStreaming(false)
     }
   }
 
@@ -166,7 +212,8 @@ export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
     setLimitHit(false)
     setUsePro(true)
     if (lastQuestion) {
-      sendMessage(lastQuestion, true)
+      // reuseLast=true: the question is already the last user bubble — resend without duplicating it.
+      sendMessage(lastQuestion, true, true)
     }
   }
 
@@ -186,6 +233,21 @@ export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
         })
       }
     } catch { /* best effort */ }
+  }
+
+  // Attach an image the tutor can "see" and solve (Vision). Read as a data URL and keep both
+  // the full URL (for preview/display) and the raw base64 (for the API).
+  const pickImage = (file: File | null) => {
+    if (!file) { setImgData(null); return }
+    if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const url = String(reader.result || '')
+      const comma = url.indexOf(',')
+      if (comma < 0) return
+      setImgData({ mime: file.type, b64: url.slice(comma + 1), url })
+    }
+    reader.readAsDataURL(file)
   }
 
   const handleKey = (e: React.KeyboardEvent) => {
@@ -247,7 +309,7 @@ export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
             </div>
           </div>
           <div style={{ display:'flex', gap:6 }}>
-            {messages.length > 0 && (
+            {mode === 'chat' && messages.length > 0 && (
               <button
                 onClick={() => {
                   setMessages([])
@@ -275,6 +337,36 @@ export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
           </div>
         </div>
 
+        {/* Chat / Quiz toggle */}
+        <div style={{
+          display:'flex', gap:4, padding:'8px 16px 0', flexShrink:0,
+        }}>
+          {([
+            { key:'chat', label:'Chat', icon:<MessageSquare size={13} /> },
+            { key:'quiz', label:'Quiz me', icon:<Target size={13} /> },
+          ] as const).map(t => (
+            <button
+              key={t.key}
+              onClick={() => setMode(t.key)}
+              style={{
+                flex:1, padding:'7px', borderRadius:9, cursor:'pointer', fontFamily:'var(--font)',
+                fontSize:12, fontWeight:700,
+                display:'flex', alignItems:'center', justifyContent:'center', gap:6,
+                background: mode === t.key ? 'var(--s3)' : 'transparent',
+                color: mode === t.key ? 'var(--t)' : 'var(--t3)',
+                border:'1px solid ' + (mode === t.key ? 'var(--br)' : 'transparent'),
+                transition:'all 0.12s',
+              }}
+            >{t.icon} {t.label}</button>
+          ))}
+        </div>
+
+        {mode === 'quiz' ? (
+          <QuizView courseSlug={courseSlug} courseName={courseInfo?.title} onExit={() => setMode('chat')} onStartExam={() => setMode('exam')} />
+        ) : mode === 'exam' ? (
+          <ExamView courseSlug={courseSlug} courseName={courseInfo?.title} onExit={() => setMode('chat')} />
+        ) : (
+        <>
         {/* Messages */}
         <div style={{ flex:1, overflowY:'auto', padding:'16px 20px', display:'flex', flexDirection:'column', gap:12 }}>
           {messages.length === 0 && (
@@ -303,8 +395,43 @@ export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
                 fontSize:13.5, lineHeight:1.6,
                 whiteSpace: msg.role === 'assistant' ? 'normal' : 'pre-wrap', wordBreak:'break-word',
               }}>
+                {msg.image && (
+                  <img src={msg.image} alt="attachment" style={{ maxWidth:'100%', maxHeight:200, borderRadius:10, display:'block', marginBottom: msg.content ? 8 : 0 }} />
+                )}
                 {msg.role === 'assistant' ? <RichText content={msg.content} /> : msg.content}
               </div>
+              {msg.role === 'assistant' && msg.sources && msg.sources.length > 0 && (
+                <div style={{ display:'flex', flexWrap:'wrap', gap:5, marginTop:1, maxWidth:'85%' }}>
+                  {msg.sources.map((s, si) => {
+                    // Deep-link straight to the source PDF at the exact page (#page=N) when we have
+                    // its URL — tap "from Lecture4.pdf · p.7" and land on that slide inside the app.
+                    const href = s.url ? `${s.url}${s.page ? `#page=${s.page}` : ''}` : null
+                    const label = `${s.title}${s.page ? ` · p.${s.page}` : ''}`
+                    const inner = (
+                      <>
+                        <FileText size={10} style={{ flexShrink:0 }} />
+                        <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{label}</span>
+                      </>
+                    )
+                    const chipStyle: React.CSSProperties = {
+                      display:'inline-flex', alignItems:'center', gap:4,
+                      fontSize:10.5, color:'var(--t3)', textDecoration:'none',
+                      background:'var(--s2)', border:'1px solid var(--br)',
+                      borderRadius:7, padding:'2px 7px', maxWidth:'100%',
+                    }
+                    return href ? (
+                      <a key={si} href={href} target="_blank" rel="noopener noreferrer"
+                         title={`Open ${s.title}${s.page ? ` at page ${s.page}` : ''}`} style={{ ...chipStyle, cursor:'pointer' }}>
+                        {inner}
+                      </a>
+                    ) : (
+                      <span key={si} title={s.page ? `${s.title} · page ${s.page}` : s.title} style={chipStyle}>
+                        {inner}
+                      </span>
+                    )
+                  })}
+                </div>
+              )}
               {msg.role === 'assistant' && (
                 <button
                   onClick={() => {
@@ -370,7 +497,7 @@ export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
           )}
 
           {/* Study-companion follow-ups under the latest answer */}
-          {messages.length > 0 && messages[messages.length - 1].role === 'assistant' && !isTyping && !limitHit && (
+          {messages.length > 0 && messages[messages.length - 1].role === 'assistant' && !isTyping && !isStreaming && !limitHit && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 2 }}>
               {STUDY_ACTIONS.map(a => (
                 <button
@@ -411,43 +538,62 @@ export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
         )}
 
         {/* Input */}
-        <div style={{
-          padding:'12px 16px',
-          borderTop:'1px solid var(--br)',
-          display:'flex', gap:8, alignItems:'flex-end',
-          flexShrink:0,
-        }}>
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKey}
-            placeholder="اسأل سؤال... / Ask a question..."
-            rows={1}
-            style={{
-              flex:1, padding:'10px 14px', borderRadius:12,
-              background:'var(--s3)', border:'1px solid var(--br)',
-              color:'var(--t)', fontSize:13, fontFamily:'var(--font)',
-              resize:'none', outline:'none',
-              maxHeight:100, overflowY:'auto',
-              lineHeight:1.5,
-            }}
-          />
-          <button
-            onClick={() => sendMessage(input)}
-            disabled={!input.trim() || isTyping}
-            style={{
-              width:40, height:40, borderRadius:11, flexShrink:0,
-              background: input.trim() && !isTyping
-                ? 'linear-gradient(135deg, var(--accent), var(--accent-2))'
-                : 'var(--s3)',
-              border:'none', cursor: input.trim() && !isTyping ? 'pointer' : 'not-allowed',
-              color: input.trim() && !isTyping ? 'white' : 'var(--t3)',
-              display:'flex', alignItems:'center', justifyContent:'center',
-              transition:'all 0.15s',
-            }}
-          ><Send size={15} /></button>
+        <div style={{ borderTop:'1px solid var(--br)', flexShrink:0 }}>
+          {imgData && (
+            <div style={{ padding:'10px 16px 0' }}>
+              <div style={{ position:'relative', display:'inline-block' }}>
+                <img src={imgData.url} alt="" style={{ maxHeight:72, borderRadius:8, border:'1px solid var(--br)', display:'block' }} />
+                <button
+                  onClick={() => setImgData(null)}
+                  title="Remove image"
+                  style={{ position:'absolute', top:-6, right:-6, width:22, height:22, borderRadius:'50%', background:'var(--s1)', border:'1px solid var(--br)', color:'var(--t2)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}
+                ><X size={12} /></button>
+              </div>
+            </div>
+          )}
+          <div style={{ padding:'12px 16px', display:'flex', gap:8, alignItems:'flex-end' }}>
+            <label
+              title="Attach an image (photograph a problem)"
+              style={{ width:40, height:40, borderRadius:11, flexShrink:0, cursor:'pointer', background:'var(--s3)', border:'1px solid var(--br)', color:'var(--t2)', display:'flex', alignItems:'center', justifyContent:'center' }}
+            >
+              <ImageIcon size={16} />
+              <input type="file" accept="image/*" onChange={e => { pickImage(e.target.files?.[0] || null); e.currentTarget.value = '' }} style={{ display:'none' }} />
+            </label>
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKey}
+              onInput={e => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 100) + 'px' }}
+              placeholder="اسأل سؤال... / Ask a question..."
+              rows={1}
+              style={{
+                flex:1, padding:'10px 14px', borderRadius:12,
+                background:'var(--s3)', border:'1px solid var(--br)',
+                color:'var(--t)', fontSize:13, fontFamily:'var(--font)',
+                resize:'none', outline:'none',
+                maxHeight:100, overflowY:'auto',
+                lineHeight:1.5,
+              }}
+            />
+            <button
+              onClick={() => sendMessage(input)}
+              disabled={(!input.trim() && !imgData) || isTyping || isStreaming}
+              style={{
+                width:40, height:40, borderRadius:11, flexShrink:0,
+                background: (input.trim() || imgData) && !isTyping && !isStreaming
+                  ? 'linear-gradient(135deg, var(--accent), var(--accent-2))'
+                  : 'var(--s3)',
+                border:'none', cursor: (input.trim() || imgData) && !isTyping && !isStreaming ? 'pointer' : 'not-allowed',
+                color: (input.trim() || imgData) && !isTyping && !isStreaming ? 'white' : 'var(--t3)',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                transition:'all 0.15s',
+              }}
+            ><Send size={15} /></button>
+          </div>
         </div>
+        </>
+        )}
       </div>
 
       <style>{`

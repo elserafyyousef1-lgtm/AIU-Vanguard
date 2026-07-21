@@ -8,27 +8,18 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { retrieveCourseContext } from '@/lib/ai/retrieval'
+import { masteryNote } from '@/lib/ai/mastery'
 import { createClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
 export const maxDuration = 30
 
-// ── Simple in-memory rate limiting (per IP) ────────────────
-const RATE_LIMIT = 20
-const RATE_WINDOW = 60_000
-const hits = new Map<string, { count: number; resetAt: number }>()
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now()
-  const entry = hits.get(ip)
-  if (!entry || now > entry.resetAt) {
-    hits.set(ip, { count: 1, resetAt: now + RATE_WINDOW })
-    return true
-  }
-  if (entry.count >= RATE_LIMIT) return false
-  entry.count++
-  return true
-}
+// Rate limiting is enforced in Postgres (public.rate_limit_hit) so the limit is GLOBAL across
+// all serverless instances. An in-memory Map would only limit per instance — bypassable by
+// firing concurrent bursts that fan out across warm instances. This matters MORE here than on
+// the free route because every call spends real money on the Anthropic key. Stricter than free.
+const RATE_LIMIT = 15
+const RATE_WINDOW_SECONDS = 60
 
 // Claude Sonnet 4.6 — best balance of speed, intelligence, and cost. Great for teaching.
 const CLAUDE_MODEL = 'claude-sonnet-4-6'
@@ -50,7 +41,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Please sign in to use the AI tutor.' }, { status: 401 })
   }
 
-  if (!checkRateLimit(user.id)) {
+  // Global (cross-instance) rate limit via Postgres. Distinct bucket so it doesn't share a
+  // counter with the free tutor. Fail-open if the limiter itself errors.
+  const { data: rlOk } = await supabase.rpc('rate_limit_hit', {
+    p_bucket: `ai-pro:${user.id}`, p_max: RATE_LIMIT, p_window: RATE_WINDOW_SECONDS,
+  })
+  if (rlOk === false) {
     return NextResponse.json(
       { error: 'Too many requests. Please wait a moment and try again.' },
       { status: 429 }
@@ -80,10 +76,13 @@ export async function POST(req: NextRequest) {
 
   // RAG: ground the answer in uploaded course materials (best-effort, never blocks).
   const lastUser = [...messages].reverse().find((m) => m.role === 'user')?.content || ''
-  const ragContext = await retrieveCourseContext(courseSlug, lastUser)
-  const groundedSystem = ragContext
+  const [{ context: ragContext, sources }, mastery] = await Promise.all([
+    retrieveCourseContext(courseSlug, lastUser),
+    masteryNote(courseSlug),
+  ])
+  const groundedSystem = (ragContext
     ? `${system || ''}\n\n--- COURSE MATERIALS (authoritative; use as the primary source. If the answer is not in them, rely on your own knowledge and make clear what is certain) ---\n${ragContext}`
-    : system
+    : (system || '')) + mastery
 
   // Our format already matches Claude's (role: 'user' | 'assistant', content: string)
   const claudeMessages = messages.map((m) => ({
@@ -134,6 +133,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       reply: reply || 'Sorry, I could not generate a response. Please try rephrasing your question.',
+      sources,
     })
   } catch {
     return NextResponse.json(

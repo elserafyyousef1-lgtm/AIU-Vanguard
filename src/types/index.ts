@@ -134,10 +134,18 @@ export interface Comment {
 }
 
 // ── AI ─────────────────────────────────────────────────────
+export interface AISource {
+  title: string
+  page: number | null
+  url?: string | null
+}
+
 export interface AIMessage {
   role: 'user' | 'assistant'
   content: string
   timestamp: string
+  sources?: AISource[]
+  image?: string        // data URL of an attached image (Vision), shown on the user's bubble
 }
 
 // ── Settings ───────────────────────────────────────────────

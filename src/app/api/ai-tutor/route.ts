@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { retrieveCourseContext } from '@/lib/ai/retrieval'
+import { masteryNote } from '@/lib/ai/mastery'
 import { createClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
@@ -22,7 +23,9 @@ const RATE_WINDOW_SECONDS = 60
 // by Google to gemini-3.5-flash, which "thinks" by default and took 30–50s per reply.
 // gemini-2.5-flash answers in ~3s and is pinned so an alias change can't slow us down again.
 const GEMINI_MODEL = 'gemini-2.5-flash'
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`
+// Streaming endpoint (Server-Sent Events) so the answer appears word-by-word, like a premium
+// chat — closing the "feel" gap with ChatGPT while our answers stay course-grounded.
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.GEMINI_API_KEY
@@ -51,14 +54,19 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  let body: { system?: string; messages?: { role: string; content: string }[]; courseSlug?: string }
+  let body: {
+    system?: string
+    messages?: { role: string; content: string }[]
+    courseSlug?: string
+    image?: { mimeType?: string; data?: string }
+  }
   try {
     body = await req.json()
   } catch {
     return NextResponse.json({ error: 'Invalid request format.' }, { status: 400 })
   }
 
-  const { system, messages, courseSlug } = body
+  const { system, messages, courseSlug, image } = body
 
   if (!Array.isArray(messages) || messages.length === 0) {
     return NextResponse.json({ error: 'No messages provided.' }, { status: 400 })
@@ -72,18 +80,37 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Optional attached image (Vision). Validate hard: must be an image mime and within a size
+  // cap (~5MB of base64) so a caller can't push a huge blob through the shared key.
+  let imagePart: { inlineData: { mimeType: string; data: string } } | null = null
+  if (image) {
+    const mime = typeof image.mimeType === 'string' ? image.mimeType : ''
+    const data = typeof image.data === 'string' ? image.data : ''
+    if (!mime.startsWith('image/') || !data || data.length > 7_000_000) {
+      return NextResponse.json({ error: 'Invalid or too-large image. Please use an image under 5 MB.' }, { status: 400 })
+    }
+    imagePart = { inlineData: { mimeType: mime, data } }
+  }
+
   // RAG: ground the answer in uploaded course materials (best-effort, never blocks).
   const lastUser = [...messages].reverse().find((m) => m.role === 'user')?.content || ''
-  const ragContext = await retrieveCourseContext(courseSlug, lastUser)
-  const groundedSystem = ragContext
+  const [{ context: ragContext, sources }, mastery] = await Promise.all([
+    retrieveCourseContext(courseSlug, lastUser),
+    masteryNote(courseSlug),
+  ])
+  const groundedSystem = (ragContext
     ? `${system || ''}\n\n--- COURSE MATERIALS (authoritative; use as the primary source. If the answer is not in them, rely on your own knowledge and make clear what is certain) ---\n${ragContext}`
-    : system
+    : (system || '')) + mastery
 
   // Convert our format -> Gemini format (assistant -> model)
-  const contents = messages.map((m) => ({
+  const contents: any[] = messages.map((m) => ({
     role: m.role === 'assistant' ? 'model' : 'user',
     parts: [{ text: m.content }],
   }))
+  // Attach the image to the latest user turn so the tutor can "see" and solve it.
+  if (imagePart && contents.length) {
+    contents[contents.length - 1].parts.push(imagePart)
+  }
 
   const requestBody: any = {
     contents,
@@ -103,7 +130,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(requestBody),
     })
 
-    if (!upstream.ok) {
+    if (!upstream.ok || !upstream.body) {
       const status = upstream.status
       const msg =
         status === 429
@@ -112,12 +139,54 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: msg }, { status: 502 })
     }
 
-    const data = await upstream.json()
-    const reply =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-      'Sorry, I could not generate a response. Please try rephrasing your question.'
+    // Transform Gemini's SSE stream into a plain-text delta stream the client appends live.
+    const encoder = new TextEncoder()
+    const decoder = new TextDecoder()
+    const stream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        const reader = upstream.body!.getReader()
+        let buffer = ''
+        let sent = false
+        try {
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            buffer += decoder.decode(value, { stream: true })
+            const lines = buffer.split('\n')
+            buffer = lines.pop() || ''
+            for (const line of lines) {
+              const s = line.trim()
+              if (!s.startsWith('data:')) continue
+              const payload = s.slice(5).trim()
+              if (!payload || payload === '[DONE]') continue
+              try {
+                const obj = JSON.parse(payload)
+                const text = obj?.candidates?.[0]?.content?.parts?.[0]?.text
+                if (text) { controller.enqueue(encoder.encode(text)); sent = true }
+              } catch { /* a JSON chunk split across reads — the buffer keeps the remainder */ }
+            }
+          }
+          if (!sent) controller.enqueue(encoder.encode('Sorry, I could not generate a response. Please try rephrasing your question.'))
+        } catch {
+          if (!sent) controller.enqueue(encoder.encode('The AI response was interrupted. Please try again.'))
+        } finally {
+          controller.close()
+        }
+      },
+    })
 
-    return NextResponse.json({ reply })
+    // Ship the grounding sources in a header (base64 UTF-8) so they arrive with the
+    // response start, separate from the text token stream. The client renders them as
+    // "📄 from <document>" chips under the answer — visible proof it used real materials.
+    const headers: Record<string, string> = {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-cache',
+    }
+    if (sources.length) {
+      headers['X-Sources'] = Buffer.from(JSON.stringify(sources), 'utf8').toString('base64')
+    }
+
+    return new Response(stream, { headers })
   } catch {
     return NextResponse.json(
       { error: 'Connection error. Please check your internet and try again.' },

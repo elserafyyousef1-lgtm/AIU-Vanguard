@@ -75,6 +75,7 @@ export default function MessagesPage() {
   const [imgPreview, setImgPreview] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const taRef = useRef<HTMLTextAreaElement>(null)   // so we can reset its auto-grown height after send
 
   const scrollToBottom = useCallback(() => {
     const el = scrollRef.current
@@ -204,6 +205,9 @@ export default function MessagesPage() {
       })
       if (error) throw error
       setText(''); setImgFile(null); setImgPreview(null)
+      // The textarea grows imperatively (onInput sets style.height); clearing the value
+      // via state doesn't fire onInput, so snap it back to one row after sending.
+      if (taRef.current) taRef.current.style.height = 'auto'
       await loadMessages(activeId)
     } catch { toast.error('Could not send the message.') }
     finally { setSending(false) }
@@ -395,6 +399,7 @@ export default function MessagesPage() {
                       <input type="file" accept="image/*" onChange={e => pickImage(e.target.files?.[0] || null)} style={{ display: 'none' }} />
                     </label>
                     <textarea
+                      ref={taRef}
                       value={text}
                       onChange={e => setText(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
