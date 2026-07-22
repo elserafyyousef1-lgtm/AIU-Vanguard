@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useUIStore } from '@/lib/store'
-import { BookOpen, Trophy, BarChart3, Clock, Lock, CheckCircle2, EyeOff, ArrowRight, CalendarClock, Sparkles, Brain, Target } from 'lucide-react'
+import { BookOpen, Trophy, BarChart3, Clock, Lock, CheckCircle2, EyeOff, ArrowRight, CalendarClock, Sparkles, Brain, Target, TrendingUp } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 
@@ -14,6 +14,7 @@ interface RankRow { rank: number; total: number; score: number }
 interface Deadline { id: string; title: string; due_at: string; course: string; submitted: boolean }
 interface FinalGrade { course: string; final_percent: number | null; graded_count: number }
 interface Learning { total: number; correct: number; topics_practiced: number; weak: { course: string; topic: string; accuracy: number }[] }
+interface TrendWeek { week_start: string; total: number; correct: number }
 
 // AIU letter scale — pure math on DB-computed percentages (AI never touches grades)
 const gradePoint = (p: number) =>
@@ -39,6 +40,7 @@ export function StudentHub({ userId }: { userId: string }) {
   const [deadlines, setDeadlines] = useState<Deadline[]>([])
   const [finals, setFinals] = useState<FinalGrade[]>([])
   const [learning, setLearning] = useState<Learning | null>(null)
+  const [trend, setTrend] = useState<TrendWeek[]>([])
 
   useEffect(() => {
     const load = async () => {
@@ -88,6 +90,8 @@ export function StudentHub({ userId }: { userId: string }) {
       // ── AI mastery profile (from the tutor's quizzes/exams) — surfaced on the dashboard
       const { data: ls } = await supabase.rpc('my_learning_summary')
       if (ls) setLearning(ls as any)
+      const { data: tr } = await supabase.rpc('my_learning_trend', { p_weeks: 8 })
+      if (Array.isArray(tr)) setTrend(tr as any)
     }
     load()
   }, [userId])
@@ -181,11 +185,34 @@ export function StudentHub({ userId }: { userId: string }) {
         </h2>
         {learning && learning.total > 0 ? (
           <Card padding={18}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 26, marginBottom: learning.weak.length ? 16 : 0 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 26, marginBottom: (trend.length >= 2 || learning.weak.length) ? 16 : 0 }}>
               {lstat(learning.total, 'Questions practiced')}
               {(() => { const acc = Math.round((learning.correct / learning.total) * 100); return lstat(`${acc}%`, 'Accuracy', acc >= 70 ? '#10b981' : acc >= 40 ? '#f59e0b' : 'var(--accent)') })()}
               {lstat(learning.topics_practiced, 'Topics covered')}
             </div>
+
+            {/* Weekly accuracy trend — proof they're getting better over time */}
+            {trend.length >= 2 && (
+              <div style={{ borderTop: '1px solid var(--br)', paddingTop: 14, marginBottom: learning.weak.length ? 16 : 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--t3)', fontWeight: 600, marginBottom: 12 }}>
+                  <TrendingUp size={13} style={{ color: '#10b981' }} /> Weekly accuracy — last {trend.length} weeks
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 52 }}>
+                  {trend.map((w, i) => {
+                    const acc = w.total ? Math.round((w.correct / w.total) * 100) : 0
+                    const col = acc >= 70 ? '#10b981' : acc >= 40 ? '#f59e0b' : 'var(--accent)'
+                    return (
+                      <div key={i} title={`${acc}% · ${w.correct}/${w.total}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, minWidth: 0 }}>
+                        <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--t3)' }}>{acc}%</span>
+                        <div style={{ width: '100%', maxWidth: 40, height: Math.max(4, acc * 0.32), background: col, borderRadius: '4px 4px 0 0', transition: 'height 0.3s' }} />
+                        <span style={{ fontSize: 9, color: 'var(--t3)', whiteSpace: 'nowrap' }}>{new Date(w.week_start).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             {learning.weak.length > 0 && (
               <div style={{ borderTop: '1px solid var(--br)', paddingTop: 14 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--t3)', fontWeight: 600, marginBottom: 10 }}>
