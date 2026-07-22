@@ -40,6 +40,7 @@ const STUDY_ACTIONS: { label: string; prompt: string }[] = [
   { label: '📝 Example', prompt: 'اديني مثال محلول بالكامل على النقطة دي بكل الخطوات. / Give me one fully worked example on this, showing every step.' },
   { label: '🎯 Quiz me', prompt: 'اسألني سؤال واحد بأسلوب الامتحان على الموضوع ده، واستنى إجابتي قبل ما تكشف الحل. / Ask me ONE exam-style question on this topic and wait for my answer before revealing the solution.' },
   { label: '⚠️ Exam trap', prompt: 'إيه أكتر غلطة أو فخ بيقع فيه الطلبة في الموضوع ده في الامتحان وإزاي أتجنبه؟ / What is the most common mistake or exam trap on this topic, and how do I avoid it?' },
+  { label: '📅 Study plan', prompt: 'اعملي خطة مذاكرة مرتّبة بالأولوية للمادة دي: ركّز على نقط ضعفي وأهم المواضيع للامتحان من مواد المادة، واقسمها لخطوات واضحة. / Build me a prioritized study plan for this course: focus on my weak areas and the most exam-relevant topics from the course materials, broken into clear steps.' },
 ]
 
 export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
