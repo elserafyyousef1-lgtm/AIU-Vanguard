@@ -14,9 +14,10 @@ import { Z } from '@/lib/z'
 import { Bell, Heart, MessageCircle, CornerUpLeft, Mail, Trash2, Megaphone, Award, GraduationCap, BookOpen, UserCog, ClipboardList, Sparkles } from 'lucide-react'
 import { playSound } from '@/lib/sound'
 import {
-  type Notif, getNotifications, isBadgeSeen, markBadgeSeen,
+  type Notif, getNotifications, isBadgeSeen, markBadgeSeen, notificationsLoaded,
   subscribeNotifications, ensureNotifications, reloadNotifications, removeNotificationLocal,
 } from '@/lib/notificationStore'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 const typeText = (t: string, meta?: string | null) => {
   switch (t) {
@@ -74,7 +75,9 @@ function relTime(iso: string): string {
   const h = Math.floor(m / 60)
   if (h < 24) return `${h}h`
   const d = Math.floor(h / 24)
-  return `${d}d`
+  if (d < 7) return `${d}d`
+  // Past a week, show a real date instead of an ever-growing day count.
+  return new Date(iso).toLocaleDateString('en-EG', { month: 'short', day: 'numeric' })
 }
 
 export function NotificationBell() {
@@ -160,7 +163,7 @@ export function NotificationBell() {
       reload(); return
     }
     if (n.type === 'welcome') { router.push('/dashboard'); reload(); return }
-    if (n.type === 'message') router.push('/messages')
+    if (n.type === 'message') router.push(n.conversation_id ? `/messages?c=${n.conversation_id}` : '/messages')
     else if (n.post_id) {
       const course = n.post?.course_tag
       router.push(course ? `/community/${course}#post-${n.post_id}` : `/community#post-${n.post_id}`)
@@ -182,6 +185,15 @@ export function NotificationBell() {
     if (next) {
       markBadgeSeen() // clear the red badge, but keep items highlighted until clicked
     }
+  }
+
+  // Mark every unread notification read in one tap.
+  const markAllRead = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const uid = session?.user?.id
+    if (!uid) return
+    await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('user_id', uid).is('read_at', null)
+    void reloadNotifications()
   }
 
   return (
@@ -215,10 +227,27 @@ export function NotificationBell() {
           boxShadow: '0 12px 40px rgba(0,0,0,0.45)',
           animation: 'notifIn 0.16s ease-out',
         }}>
-          <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--br)', position: 'sticky', top: 0, background: 'var(--s2)' }}>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--br)', position: 'sticky', top: 0, background: 'var(--s2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, zIndex: 1 }}>
             <span style={{ fontWeight: 700, color: 'var(--t)', fontSize: 14 }}>Notifications</span>
+            {unreadItems > 0 && (
+              <button onClick={markAllRead} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'var(--font)', padding: 0 }}>
+                Mark all read
+              </button>
+            )}
           </div>
-          {items.length === 0 ? (
+          {!notificationsLoaded() ? (
+            <div style={{ padding: 8 }}>
+              {[0, 1, 2].map(i => (
+                <div key={i} style={{ display: 'flex', gap: 11, padding: '10px 8px' }}>
+                  <Skeleton w={38} h={38} radius="50%" />
+                  <div style={{ flex: 1 }}>
+                    <Skeleton w="80%" h={12} radius={6} style={{ marginBottom: 8 }} />
+                    <Skeleton w="35%" h={10} radius={6} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : items.length === 0 ? (
             <div style={{ padding: '34px 20px', textAlign: 'center', color: 'var(--t3)', fontSize: 13.5 }}>
               <Bell size={26} style={{ opacity: 0.4, marginBottom: 8 }} />
               <div>No notifications yet.</div>
@@ -240,7 +269,7 @@ export function NotificationBell() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: 15,
               }}>
                 {n.actor?.avatar_url
-                  ? <img src={n.actor.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ? <img src={n.actor.avatar_url} alt="" onError={(e) => { e.currentTarget.style.display = 'none' }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   : (n.actor?.full_name || 'U')[0].toUpperCase()}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -289,6 +318,7 @@ export function NotificationBell() {
         }
         .notif-del { opacity: 0.35; transition: opacity 0.15s; }
         .notif-del:hover { opacity: 1; color: var(--accent-red, #ef4444) !important; }
+        @media (hover: none) { .notif-del { opacity: 0.6; } }
         .bell-shake {
           animation: bellShake 0.6s ease-in-out;
           transform-origin: 50% 4px;

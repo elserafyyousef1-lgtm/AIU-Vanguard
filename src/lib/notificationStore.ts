@@ -48,6 +48,9 @@ const emit = (event: 'update' | 'fresh') => listeners.forEach(fn => fn(event))
 
 export function getNotifications(): Notif[] { return items }
 export function isBadgeSeen(): boolean { return badgeSeen }
+// True once the FIRST real fetch has resolved — lets the bell show a skeleton instead of
+// flashing "No notifications yet" before data arrives.
+export function notificationsLoaded(): boolean { return seenIds !== null }
 export function markBadgeSeen() { badgeSeen = true; emit('update') }
 
 export function subscribeNotifications(fn: Listener): () => void {
@@ -123,7 +126,10 @@ export async function ensureNotifications() {
       channel = supabase
         .channel('notif-rt')
         .on('postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${uid}` },
+          // '*' (not just INSERT) so read/delete done in another tab or device sync here too.
+          // reloadNotifications() only sounds for genuinely-new unseen ids, so UPDATE/DELETE
+          // can never re-trigger the ding.
+          { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${uid}` },
           () => { void reloadNotifications() })
         .subscribe()
       await reloadNotifications()
