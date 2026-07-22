@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useUIStore } from '@/lib/store'
-import { BookOpen, Trophy, BarChart3, Clock, Lock, CheckCircle2, EyeOff, ArrowRight, CalendarClock, Sparkles } from 'lucide-react'
+import { BookOpen, Trophy, BarChart3, Clock, Lock, CheckCircle2, EyeOff, ArrowRight, CalendarClock, Sparkles, Brain, Target } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 
@@ -13,6 +13,7 @@ interface Enr { id: string; course: string; enrolled_at: string; completed: bool
 interface RankRow { rank: number; total: number; score: number }
 interface Deadline { id: string; title: string; due_at: string; course: string; submitted: boolean }
 interface FinalGrade { course: string; final_percent: number | null; graded_count: number }
+interface Learning { total: number; correct: number; topics_practiced: number; weak: { course: string; topic: string; accuracy: number }[] }
 
 // AIU letter scale — pure math on DB-computed percentages (AI never touches grades)
 const gradePoint = (p: number) =>
@@ -37,6 +38,7 @@ export function StudentHub({ userId }: { userId: string }) {
   const [rank, setRank] = useState<RankRow | null>(null)
   const [deadlines, setDeadlines] = useState<Deadline[]>([])
   const [finals, setFinals] = useState<FinalGrade[]>([])
+  const [learning, setLearning] = useState<Learning | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -82,6 +84,10 @@ export function StudentHub({ userId }: { userId: string }) {
 
       const { data: r } = await supabase.rpc('my_student_rank')
       if (r && (r as any).length) setRank((r as any)[0])
+
+      // ── AI mastery profile (from the tutor's quizzes/exams) — surfaced on the dashboard
+      const { data: ls } = await supabase.rpc('my_learning_summary')
+      if (ls) setLearning(ls as any)
     }
     load()
   }, [userId])
@@ -168,6 +174,56 @@ export function StudentHub({ userId }: { userId: string }) {
           </span>)}
       </div>
 
+      {/* ── Your Learning — the AI mastery profile, surfaced so its value shows even off-chat ── */}
+      <div style={{ marginBottom: 30 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--t)', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Brain size={18} style={{ color: 'var(--accent)' }} /> Your Learning
+        </h2>
+        {learning && learning.total > 0 ? (
+          <Card padding={18}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 26, marginBottom: learning.weak.length ? 16 : 0 }}>
+              {lstat(learning.total, 'Questions practiced')}
+              {(() => { const acc = Math.round((learning.correct / learning.total) * 100); return lstat(`${acc}%`, 'Accuracy', acc >= 70 ? '#10b981' : acc >= 40 ? '#f59e0b' : 'var(--accent)') })()}
+              {lstat(learning.topics_practiced, 'Topics covered')}
+            </div>
+            {learning.weak.length > 0 && (
+              <div style={{ borderTop: '1px solid var(--br)', paddingTop: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--t3)', fontWeight: 600, marginBottom: 10 }}>
+                  <Target size={13} style={{ color: 'var(--accent)' }} /> Focus areas — tap to practice with the AI
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {learning.weak.map((w, i) => (
+                    <button key={i} onClick={() => openAI(w.course)} title={`Practice ${w.topic} (${w.course})`} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 11px', borderRadius: 10, cursor: 'pointer',
+                      background: 'var(--s3)', border: '1px solid var(--br)', fontFamily: 'var(--font)',
+                    }}>
+                      <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>{w.course}</span>
+                      <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--t)' }}>{w.topic}</span>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: '#f59e0b' }}>{Math.round(w.accuracy * 100)}%</span>
+                      <ArrowRight size={12} style={{ color: 'var(--t3)' }} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Card>
+        ) : (
+          <Card padding={22}>
+            <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 13, background: 'linear-gradient(135deg, rgba(224,38,75,0.16), rgba(139,92,246,0.16))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)' }}>
+                <Sparkles size={20} />
+              </div>
+              <p style={{ color: 'var(--t3)', fontSize: 13.5, lineHeight: 1.6, maxWidth: 340 }}>
+                ذاكر مع الـ AI Tutor — خُد كويز سريع أو امتحان، ونقط ضعفك وتقدّمك ودقّتك هتظهرلك هنا وتفضل محفوظة.
+              </p>
+              <Button size="sm" onClick={() => openAI(enrs[0]?.course || 'CSE221')} iconRight={<ArrowRight size={14} />}>
+                <Sparkles size={13} style={{ marginRight: 5 }} /> جرّب كويز
+              </Button>
+            </div>
+          </Card>
+        )}
+      </div>
+
       {/* My courses */}
       <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--t)', marginBottom: 14 }}>My Courses</h2>
       {enrs.length === 0 ? (
@@ -207,3 +263,11 @@ const pill = (color: string): React.CSSProperties => ({
   display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px',
   borderRadius: 8, border: `1px solid ${color}`, color, fontSize: 11, fontWeight: 700,
 })
+
+// A compact "big number + label" stat used in the Your Learning card.
+const lstat = (value: React.ReactNode, label: string, color = 'var(--t)'): React.ReactNode => (
+  <div>
+    <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 800, color, letterSpacing: '-0.02em' }}>{value}</div>
+    <div style={{ fontSize: 11.5, color: 'var(--t3)', fontWeight: 600, marginTop: 2 }}>{label}</div>
+  </div>
+)
