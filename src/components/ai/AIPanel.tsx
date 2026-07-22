@@ -171,17 +171,18 @@ export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
       if (ctype.includes('application/json')) {
         // Non-streaming route (e.g. the pro tutor) — one reply.
         const data = await res.json()
-        setMessages(prev => [...prev, { role: 'assistant', content: data.reply, sources: data.sources, timestamp: new Date().toISOString() }])
+        setMessages(prev => [...prev, { role: 'assistant', content: data.reply, sources: data.sources, grounded: data.grounded, timestamp: new Date().toISOString() }])
       } else if (res.body) {
         // Streaming — the answer types in word-by-word as it arrives.
-        // Grounding sources ride in a header, so they're ready before the first token.
+        // Grounding sources + honesty signal ride in headers, ready before the first token.
         const sources = decodeSources(res.headers.get('X-Sources'))
+        const grounded = (res.headers.get('X-Grounded') || undefined) as AIMessage['grounded']
         // Swap the typing dots for a live bubble, but keep isStreaming engaged as the lock
         // for the ENTIRE stream — the send guard, button, and follow-up chips all respect it,
         // so no second send can fire mid-stream and scramble `copy[copy.length-1]`.
         setIsTyping(false)
         setIsStreaming(true)
-        setMessages(prev => [...prev, { role: 'assistant', content: '', sources, timestamp: new Date().toISOString() }])
+        setMessages(prev => [...prev, { role: 'assistant', content: '', sources, grounded, timestamp: new Date().toISOString() }])
         const reader = res.body.getReader()
         const decoder = new TextDecoder()
         let acc = ''
@@ -430,6 +431,21 @@ export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
                       </span>
                     )
                   })}
+                </div>
+              )}
+              {/* Honesty signal: this answer wasn't found in the course's materials (which DO exist). */}
+              {msg.role === 'assistant' && msg.grounded === 'ungrounded' && (
+                <div
+                  title="This answer isn't from your uploaded course materials — double-check against your slides."
+                  style={{
+                    display:'inline-flex', alignItems:'center', gap:4, marginTop:1, maxWidth:'85%',
+                    fontSize:10.5, color:'#d9a441',
+                    background:'rgba(217,164,65,0.10)', border:'1px solid rgba(217,164,65,0.28)',
+                    borderRadius:7, padding:'2px 8px',
+                  }}
+                >
+                  <Sparkles size={10} style={{ flexShrink:0 }} />
+                  <span>معلومة عامة — مش من مواد المادة</span>
                 </div>
               )}
               {msg.role === 'assistant' && (

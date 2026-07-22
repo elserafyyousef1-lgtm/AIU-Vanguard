@@ -28,7 +28,10 @@ interface Question {
   explanation: string
   topic: string
   grounded: boolean
+  _difficulty?: Difficulty   // the level this question was actually generated at
 }
+
+const ORDER: Difficulty[] = ['easy', 'medium', 'hard']
 
 const DIFFS: { key: Difficulty; label: string }[] = [
   { key: 'easy', label: 'Easy' },
@@ -47,6 +50,8 @@ export function QuizView({ courseSlug, courseName, onExit, onStartExam }: Props)
   const [weak, setWeak] = useState<string[]>([])
   const [focusTopic, setFocusTopic] = useState<string | null>(null)  // when drilling one weak topic
   const [allTimeWeak, setAllTimeWeak] = useState<string[]>([])       // weak topics across ALL past sessions
+  const [liveDifficulty, setLiveDifficulty] = useState<Difficulty>('medium')  // adapts to performance
+  const [recent, setRecent] = useState<boolean[]>([])                // last few correct/wrong, for adapting
   const [error, setError] = useState('')
   const supabase = createClient()
 
@@ -60,14 +65,15 @@ export function QuizView({ courseSlug, courseName, onExit, onStartExam }: Props)
   }, [courseSlug])
 
   // Persist one answered question to the mastery profile (best-effort — never blocks the UI).
-  const persistAttempt = (topic: string, correct: boolean) => {
-    supabase.from('ai_quiz_attempts').insert({ course: courseSlug, topic, difficulty, correct, source: 'quiz' }).then(() => {})
+  const persistAttempt = (topic: string, correct: boolean, diff: Difficulty) => {
+    supabase.from('ai_quiz_attempts').insert({ course: courseSlug, topic, difficulty: diff, correct, source: 'quiz' }).then(() => {})
   }
 
   // topicArg === undefined → keep the current focusTopic; pass null to force a broad quiz,
-  // or a string to drill that topic. (State updates are async, so the initial call passes it.)
-  const fetchQuestion = async (nextAsked: string[], topicArg?: string | null) => {
+  // or a string to drill that topic. diffArg overrides the level for the initial call (state is async).
+  const fetchQuestion = async (nextAsked: string[], topicArg?: string | null, diffArg?: Difficulty) => {
     const useTopic = topicArg !== undefined ? topicArg : focusTopic
+    const useDiff = diffArg || liveDifficulty
     setPhase('loading')
     setSelected(null)
     setError('')
@@ -75,7 +81,7 @@ export function QuizView({ courseSlug, courseName, onExit, onStartExam }: Props)
       const res = await fetch('/api/ai-quiz', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courseSlug, courseName, difficulty, asked: nextAsked, topic: useTopic || undefined }),
+        body: JSON.stringify({ courseSlug, courseName, difficulty: useDiff, asked: nextAsked, topic: useTopic || undefined }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -83,7 +89,7 @@ export function QuizView({ courseSlug, courseName, onExit, onStartExam }: Props)
         setPhase('error')
         return
       }
-      setCurrent(data as Question)
+      setCurrent({ ...(data as Question), _difficulty: useDiff })
       setAsked([...nextAsked, data.question].slice(-15))
       setPhase('question')
     } catch {
@@ -93,14 +99,14 @@ export function QuizView({ courseSlug, courseName, onExit, onStartExam }: Props)
   }
 
   const start = () => {
-    setScore(0); setTotal(0); setWeak([]); setAsked([]); setFocusTopic(null)
-    fetchQuestion([], null)
+    setScore(0); setTotal(0); setWeak([]); setAsked([]); setFocusTopic(null); setRecent([]); setLiveDifficulty(difficulty)
+    fetchQuestion([], null, difficulty)
   }
 
   // Drill a single weak topic — closes the loop from "here's what you're bad at" to practice.
   const startFocused = (t: string) => {
-    setScore(0); setTotal(0); setWeak([]); setAsked([]); setFocusTopic(t)
-    fetchQuestion([], t)
+    setScore(0); setTotal(0); setWeak([]); setAsked([]); setFocusTopic(t); setRecent([]); setLiveDifficulty(difficulty)
+    fetchQuestion([], t, difficulty)
   }
 
   const answer = (i: number) => {
@@ -110,7 +116,16 @@ export function QuizView({ courseSlug, courseName, onExit, onStartExam }: Props)
     const correct = i === current.correctIndex
     if (correct) setScore(s => s + 1)
     else setWeak(w => (w.includes(current.topic) ? w : [...w, current.topic]))
-    persistAttempt(current.topic, correct)   // remember this across sessions
+    persistAttempt(current.topic, correct, current._difficulty || liveDifficulty)   // remember this across sessions
+    // Adapt: two right in a row → step up; two wrong in a row → step down. Keeps it challenging.
+    const nr = [...recent, correct].slice(-3)
+    setRecent(nr)
+    const last2 = nr.slice(-2)
+    if (last2.length === 2) {
+      const idx = ORDER.indexOf(liveDifficulty)
+      if (last2[0] && last2[1] && idx < 2) setLiveDifficulty(ORDER[idx + 1])
+      else if (!last2[0] && !last2[1] && idx > 0) setLiveDifficulty(ORDER[idx - 1])
+    }
   }
 
   const pct = total > 0 ? Math.round((score / total) * 100) : 0
@@ -135,7 +150,7 @@ export function QuizView({ courseSlug, courseName, onExit, onStartExam }: Props)
         </div>
 
         <div>
-          <div style={{ fontSize:11.5, color:'var(--t3)', marginBottom:8, textAlign:'center' }}>Difficulty</div>
+          <div style={{ fontSize:11.5, color:'var(--t3)', marginBottom:8, textAlign:'center' }}>Starting level — adapts as you go</div>
           <div style={{ display:'flex', gap:8, justifyContent:'center' }}>
             {DIFFS.map(d => (
               <button
@@ -315,10 +330,13 @@ export function QuizView({ courseSlug, courseName, onExit, onStartExam }: Props)
             }}>🎯 {focusTopic}</span>
           )}
           {current?.grounded && (
-            <span title="From your course materials" style={{ fontSize:10, color:'var(--t3)', border:'1px solid var(--br)', borderRadius:6, padding:'1px 6px' }}>
+            <span title="From your course materials" style={{ fontSize:10, color:'var(--t3)', border:'1px solid var(--br)', borderRadius:6, padding:'1px 6px', flexShrink:0 }}>
               from materials
             </span>
           )}
+          <span title="Difficulty adapts to your performance" style={{ fontSize:10, fontWeight:700, color:'var(--t3)', border:'1px solid var(--br)', borderRadius:6, padding:'1px 6px', flexShrink:0, textTransform:'capitalize' }}>
+            {liveDifficulty}
+          </span>
         </div>
         <button
           onClick={() => setPhase('summary')}

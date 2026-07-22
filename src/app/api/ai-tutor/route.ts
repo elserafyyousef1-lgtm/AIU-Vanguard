@@ -94,10 +94,13 @@ export async function POST(req: NextRequest) {
 
   // RAG: ground the answer in uploaded course materials (best-effort, never blocks).
   const lastUser = [...messages].reverse().find((m) => m.role === 'user')?.content || ''
-  const [{ context: ragContext, sources }, mastery] = await Promise.all([
+  const [{ context: ragContext, sources, hasMaterials }, mastery] = await Promise.all([
     retrieveCourseContext(courseSlug, lastUser),
     masteryNote(courseSlug),
   ])
+  // Honesty signal: was this answer grounded in the course's own materials, or general knowledge?
+  // 'none' = the course has nothing uploaded, so we don't nag the student about it.
+  const groundedState = ragContext ? 'grounded' : (hasMaterials ? 'ungrounded' : 'none')
   const groundedSystem = (ragContext
     ? `${system || ''}\n\n--- COURSE MATERIALS (authoritative; use as the primary source. If the answer is not in them, rely on your own knowledge and make clear what is certain) ---\n${ragContext}`
     : (system || '')) + mastery
@@ -181,6 +184,7 @@ export async function POST(req: NextRequest) {
     const headers: Record<string, string> = {
       'Content-Type': 'text/plain; charset=utf-8',
       'Cache-Control': 'no-cache',
+      'X-Grounded': groundedState,
     }
     if (sources.length) {
       headers['X-Sources'] = Buffer.from(JSON.stringify(sources), 'utf8').toString('base64')

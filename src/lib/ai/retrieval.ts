@@ -23,9 +23,10 @@ export interface RagSource {
 export interface RagResult {
   context: string
   sources: RagSource[]
+  hasMaterials: boolean   // does this course have ANY uploaded materials (vs. this query just not matching)?
 }
 
-const EMPTY: RagResult = { context: '', sources: [] }
+const EMPTY: RagResult = { context: '', sources: [], hasMaterials: false }
 
 interface ChunkRow {
   content: string
@@ -47,10 +48,14 @@ export async function retrieveCourseContext(
       p_course: courseSlug,
       match_count: TOP_K,
     })
-    if (error || !Array.isArray(data) || data.length === 0) return EMPTY
+    if (error || !Array.isArray(data)) return EMPTY
+
+    // The course HAS materials if the RPC returned any chunk at all (it orders every chunk by
+    // similarity). Zero rows ⇒ the course has nothing uploaded (vs. this query just not matching).
+    const hasMaterials = data.length > 0
 
     const good = (data as ChunkRow[]).filter((d) => (d.similarity ?? 0) >= MIN_SIMILARITY)
-    if (good.length === 0) return EMPTY
+    if (good.length === 0) return { context: '', sources: [], hasMaterials }
 
     const context = good.map((d, i) => `[Course material ${i + 1}]\n${d.content}`).join('\n\n')
 
@@ -73,7 +78,7 @@ export async function retrieveCourseContext(
       }
     }
 
-    return { context, sources }
+    return { context, sources, hasMaterials }
   } catch {
     return EMPTY // RAG is best-effort — never block the tutor.
   }

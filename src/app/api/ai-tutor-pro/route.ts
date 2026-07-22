@@ -76,10 +76,11 @@ export async function POST(req: NextRequest) {
 
   // RAG: ground the answer in uploaded course materials (best-effort, never blocks).
   const lastUser = [...messages].reverse().find((m) => m.role === 'user')?.content || ''
-  const [{ context: ragContext, sources }, mastery] = await Promise.all([
+  const [{ context: ragContext, sources, hasMaterials }, mastery] = await Promise.all([
     retrieveCourseContext(courseSlug, lastUser),
     masteryNote(courseSlug),
   ])
+  const groundedState = ragContext ? 'grounded' : (hasMaterials ? 'ungrounded' : 'none')
   const groundedSystem = (ragContext
     ? `${system || ''}\n\n--- COURSE MATERIALS (authoritative; use as the primary source. If the answer is not in them, rely on your own knowledge and make clear what is certain) ---\n${ragContext}`
     : (system || '')) + mastery
@@ -134,6 +135,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       reply: reply || 'Sorry, I could not generate a response. Please try rephrasing your question.',
       sources,
+      grounded: groundedState,
     })
   } catch {
     return NextResponse.json(

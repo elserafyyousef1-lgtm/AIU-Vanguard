@@ -146,6 +146,7 @@ export interface AIMessage {
   timestamp: string
   sources?: AISource[]
   image?: string        // data URL of an attached image (Vision), shown on the user's bubble
+  grounded?: 'grounded' | 'ungrounded' | 'none'  // was the answer from course materials? ('none' = course has none)
 }
 
 // ── Settings ───────────────────────────────────────────────
