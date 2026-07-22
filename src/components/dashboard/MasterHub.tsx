@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { StatSkeleton } from './DoctorHub'
 
 interface CourseRow {
   id: string; code: string; title: string
@@ -22,6 +23,7 @@ export function MasterHub() {
   const { userId } = useAuth()
   const [courses, setCourses] = useState<CourseRow[]>([])
   const [docs, setDocs] = useState<Doc[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!userId) return
@@ -30,14 +32,17 @@ export function MasterHub() {
         .from('course_assignments').select('course')
         .eq('user_id', userId).eq('role_in_course', 'master')
       const codes = (mine || []).map((r: any) => r.course)
-      if (!codes.length) { setCourses([]); setDocs([]); return }
+      if (!codes.length) { setCourses([]); setDocs([]); setLoading(false); return }
 
-      const [{ data: cs }, { data: en }, { data: dc }] = await Promise.all([
+      const [{ data: cs }, { data: en }, { data: dc }, { data: dcAll }] = await Promise.all([
         supabase.from('courses').select('id, code, title').in('code', codes),
         supabase.from('enrollments').select('course').in('course', codes),
+        // recent uploads (preview list only)
         supabase.from('course_documents')
           .select('id, course, title, status, created_at')
           .in('course', codes).order('created_at', { ascending: false }).limit(8),
+        // ALL docs (course + status only) — accurate totals, not capped at 8
+        supabase.from('course_documents').select('course, status').in('course', codes),
       ])
       const courseIds = (cs || []).map((c: any) => c.id)
       const { data: wk } = courseIds.length
@@ -48,8 +53,9 @@ export function MasterHub() {
       ;(en || []).forEach((e: any) => { enCounts[e.course] = (enCounts[e.course] || 0) + 1 })
       const wkCounts: Record<string, number> = {}
       ;(wk || []).forEach((w: any) => { wkCounts[w.course_id] = (wkCounts[w.course_id] || 0) + 1 })
+      // accurate per-course totals from the FULL doc set, not the 8-item preview
       const docCounts: Record<string, { total: number; pending: number }> = {}
-      ;(dc || []).forEach((d: any) => {
+      ;(dcAll || []).forEach((d: any) => {
         docCounts[d.course] = docCounts[d.course] || { total: 0, pending: 0 }
         docCounts[d.course].total++
         if (d.status && d.status !== 'ready') docCounts[d.course].pending++
@@ -63,6 +69,7 @@ export function MasterHub() {
         docsPending: docCounts[c.code]?.pending || 0,
       })))
       setDocs((dc as any) || [])
+      setLoading(false)
     }
     load()
   }, [userId])
@@ -70,6 +77,7 @@ export function MasterHub() {
   const needsStructure = courses.filter(c => c.weeks === 0).length
   const totalStudents = courses.reduce((a, c) => a + c.students, 0)
   const pendingDocs = courses.reduce((a, c) => a + c.docsPending, 0)
+  const totalMedia = courses.reduce((a, c) => a + c.docs, 0)
 
   const stat = (icon: any, label: string, value: React.ReactNode, color: string) => (
     <Card padding={18}>
@@ -85,10 +93,14 @@ export function MasterHub() {
     <div className="anim-2">
       {/* ── What needs me now ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px,1fr))', gap: 14, marginBottom: 26 }}>
-        {stat(<Layers size={15} />, 'Courses needing structure', needsStructure, needsStructure ? '#f59e0b' : '#10b981')}
-        {stat(<FileText size={15} />, 'Docs processing', pendingDocs, pendingDocs ? '#f59e0b' : '#10b981')}
-        {stat(<Clapperboard size={15} />, 'Media items', docs.length, '#8b5cf6')}
-        {stat(<Users size={15} />, 'Students organized', totalStudents, '#10b981')}
+        {loading ? [0, 1, 2, 3].map(i => <StatSkeleton key={i} />) : (
+          <>
+            {stat(<Layers size={15} />, 'Courses needing structure', needsStructure, needsStructure ? '#f59e0b' : '#10b981')}
+            {stat(<FileText size={15} />, 'Docs processing', pendingDocs, pendingDocs ? '#f59e0b' : '#10b981')}
+            {stat(<Clapperboard size={15} />, 'Media items', totalMedia, '#8b5cf6')}
+            {stat(<Users size={15} />, 'Students organized', totalStudents, '#10b981')}
+          </>
+        )}
       </div>
 
       {/* ── Content & organization tasks per course ── */}

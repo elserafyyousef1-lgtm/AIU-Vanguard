@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 interface CourseRow { id: string; code: string; title: string; students: number; ungraded: number; unpublished: number }
 interface Req { id: string; status: string; course: { code: string; title: string } | null }
@@ -32,6 +33,7 @@ export function DoctorHub() {
   const [tas, setTas] = useState<TA[]>([])
   const [presets, setPresets] = useState<Preset[]>([])
   const [saving, setSaving] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
   // per-TA editor state
   const [edit, setEdit] = useState<Record<string, { caps: string[]; expiry: string; reason: string }>>({})
 
@@ -52,11 +54,8 @@ export function DoctorHub() {
       ])
       const courseIds = (cs || []).map((c: any) => c.id)
       // grading + publish queues
-      const [{ data: asg }, { data: subs }, { data: grds }] = await Promise.all([
-        supabase.from('assignments').select('id, course_id, published').in('course_id', courseIds),
-        supabase.from('submissions').select('id, assignment_id').in('assignment_id', []),
-        supabase.from('grades').select('submission_id').in('assignment_id', []),
-      ])
+      const { data: asg } = await supabase
+        .from('assignments').select('id, course_id, published').in('course_id', courseIds)
       const asgIds = (asg || []).map((a: any) => a.id)
       let subRows: any[] = [], grdRows: any[] = []
       if (asgIds.length) {
@@ -66,7 +65,6 @@ export function DoctorHub() {
         ])
         subRows = s2.data || []; grdRows = g2.data || []
       }
-      void subs; void grds
       const gradedSet = new Set(grdRows.map((g: any) => g.submission_id))
       const asgById: Record<string, any> = {}
       ;(asg || []).forEach((a: any) => { asgById[a.id] = a })
@@ -97,6 +95,7 @@ export function DoctorHub() {
       .select('id, status, course:course_id (code, title)')
       .eq('doctor_id', userId).order('created_at', { ascending: false })
     setReqs((tr as any) || [])
+    setLoading(false)
   }, [userId])
 
   useEffect(() => { load() }, [load])
@@ -162,10 +161,14 @@ export function DoctorHub() {
     <div className="anim-2">
       {/* ── What needs me now ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px,1fr))', gap: 14, marginBottom: 26 }}>
-        {stat(<ClipboardList size={15} />, 'Waiting for grading', totalUngraded, totalUngraded ? '#f59e0b' : '#10b981')}
-        {stat(<Send size={15} />, 'Unpublished results', totalUnpublished, totalUnpublished ? 'var(--accent)' : '#10b981')}
-        {stat(<UserCog size={15} />, 'Teaching assistants', tas.length, '#8b5cf6')}
-        {stat(<GraduationCap size={15} />, 'Pending requests', pending, pending ? '#f59e0b' : '#10b981')}
+        {loading ? [0, 1, 2, 3].map(i => <StatSkeleton key={i} />) : (
+          <>
+            {stat(<ClipboardList size={15} />, 'Waiting for grading', totalUngraded, totalUngraded ? '#f59e0b' : '#10b981')}
+            {stat(<Send size={15} />, 'Unpublished results', totalUnpublished, totalUnpublished ? 'var(--accent)' : '#10b981')}
+            {stat(<UserCog size={15} />, 'Teaching assistants', tas.length, '#8b5cf6')}
+            {stat(<GraduationCap size={15} />, 'Pending requests', pending, pending ? '#f59e0b' : '#10b981')}
+          </>
+        )}
       </div>
 
       {/* ── Action queues per course ── */}
@@ -298,6 +301,19 @@ export function DoctorHub() {
         </>
       )}
     </div>
+  )
+}
+
+// Skeleton stat card — shown while a hub's data loads so it never flashes a false "0".
+export function StatSkeleton() {
+  return (
+    <Card padding={18}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <Skeleton w={30} h={30} radius={9} />
+        <Skeleton w={92} h={12} radius={6} />
+      </div>
+      <Skeleton w={54} h={24} radius={7} />
+    </Card>
   )
 }
 

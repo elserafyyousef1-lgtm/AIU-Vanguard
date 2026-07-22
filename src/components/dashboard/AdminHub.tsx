@@ -11,12 +11,15 @@ import { StudentCenter } from './StudentCenter'
 import { CourseModal, type CourseRow } from './CourseModal'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { StatSkeleton } from './DoctorHub'
 
 export function AdminHub() {
   const supabase = createClient()
   const [stats, setStats] = useState({ students: 0, doctors: 0, courses: 0, pending: 0 })
   const [courses, setCourses] = useState<CourseRow[]>([])
   const [modal, setModal] = useState<{ course: CourseRow | null } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     const [st, dr, cs, pd, list] = await Promise.all([
@@ -30,12 +33,14 @@ export function AdminHub() {
     ])
     setStats({ students: st.count || 0, doctors: dr.count || 0, courses: cs.count || 0, pending: pd.count || 0 })
     setCourses((list.data as any) || [])
+    setLoading(false)
   }, [])
 
   useEffect(() => { load() }, [load])
 
   const deleteCourse = async (c: CourseRow) => {
-    if (!confirm(`Delete ${c.code} (${c.title})?\nThis removes its enrollments and assignments too.`)) return
+    // Guarded by a two-step inline confirm in the row (no off-brand native dialog).
+    setConfirmDelete(null)
     await supabase.from('enrollments').delete().eq('course', c.code)
     await supabase.from('course_assignments').delete().eq('course', c.code)
     const { error } = await supabase.from('courses').delete().eq('id', c.id as string)
@@ -56,10 +61,14 @@ export function AdminHub() {
   return (
     <div className="anim-2">
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px,1fr))', gap: 14, marginBottom: 26 }}>
-        {card(<Users size={15} />, 'Students', stats.students, 'var(--accent)')}
-        {card(<GraduationCap size={15} />, 'Doctors', stats.doctors, '#10b981')}
-        {card(<BookOpen size={15} />, 'Courses', stats.courses, '#8b5cf6')}
-        {card(<Hourglass size={15} />, 'Pending Requests', stats.pending, '#f59e0b')}
+        {loading ? [0, 1, 2, 3].map(i => <StatSkeleton key={i} />) : (
+          <>
+            {card(<Users size={15} />, 'Students', stats.students, 'var(--accent)')}
+            {card(<GraduationCap size={15} />, 'Doctors', stats.doctors, '#10b981')}
+            {card(<BookOpen size={15} />, 'Courses', stats.courses, '#8b5cf6')}
+            {card(<Hourglass size={15} />, 'Pending Requests', stats.pending, '#f59e0b')}
+          </>
+        )}
       </div>
 
       <Link href="/admin/people" style={{ textDecoration: 'none' }}>
@@ -105,7 +114,15 @@ export function AdminHub() {
                 <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--t)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</span>
                 {c.has_ai && <span title="AI enabled" style={{ fontSize: 11, color: 'var(--accent)' }}>✦</span>}
                 <button title="Edit course" onClick={() => setModal({ course: c })} style={iconBtn('var(--t2)')}><Pencil size={12} /></button>
-                <button title="Delete course" onClick={() => deleteCourse(c)} style={iconBtn('#ef4444')}><Trash2 size={12} /></button>
+                {confirmDelete === c.id ? (
+                  <>
+                    <button title="Confirm delete (removes enrollments & assignments)" onClick={() => deleteCourse(c)}
+                      style={{ height: 26, padding: '0 9px', borderRadius: 8, background: '#ef4444', border: 'none', color: 'white', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: 'var(--font)', flexShrink: 0 }}>Delete</button>
+                    <button title="Cancel" onClick={() => setConfirmDelete(null)} style={iconBtn('var(--t3)')}>✕</button>
+                  </>
+                ) : (
+                  <button title="Delete course" onClick={() => setConfirmDelete(c.id as string)} style={iconBtn('#ef4444')}><Trash2 size={12} /></button>
+                )}
               </div>
             ))}
           </div>

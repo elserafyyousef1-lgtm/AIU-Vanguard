@@ -13,6 +13,15 @@ import {
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { StatSkeleton } from './DoctorHub'
+
+const timeAgo = (iso: string): string => {
+  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
+  if (m < 1) return 'now'
+  if (m < 60) return `${m}m`
+  if (m < 1440) return `${Math.floor(m / 60)}h`
+  return `${Math.floor(m / 1440)}d`
+}
 
 interface MyAssign { course: string; capabilities: string[]; caps_expire_at: string | null }
 interface Question { id: string; content: string; created_at: string; author: string; course: string }
@@ -24,7 +33,8 @@ export function GuiderHub() {
   const [assigns, setAssigns] = useState<MyAssign[]>([])
   const [ungraded, setUngraded] = useState<Record<string, number>>({})
   const [questions, setQuestions] = useState<Question[]>([])
-  const [convOpen, setConvOpen] = useState(0)
+  const [waiting, setWaiting] = useState(0)      // conversations with an unanswered student message
+  const [loading, setLoading] = useState(true)
 
   const activeCaps = (a: MyAssign) =>
     (!a.caps_expire_at || new Date(a.caps_expire_at) > new Date()) ? (a.capabilities || []) : []
@@ -40,7 +50,7 @@ export function GuiderHub() {
       const rows: MyAssign[] = (mine as any) || []
       setAssigns(rows)
       const codes = rows.map(r => r.course)
-      if (!codes.length) return
+      if (!codes.length) { setLoading(false); return }
 
       // grading queue (visible only if the doctor delegated 'grade')
       const gradable = rows.filter(r => activeCaps(r).includes('grade')).map(r => r.course)
@@ -73,14 +83,14 @@ export function GuiderHub() {
         }
       }
 
-      // fresh student questions = latest comments on my courses' posts
+      // fresh student questions = latest comments on my courses' posts (exclude my own replies)
       const { data: posts } = await supabase
         .from('posts').select('id, course_tag').in('course_tag', codes)
       const postIds = (posts || []).map((p: any) => p.id)
       if (postIds.length) {
         const { data: cm } = await supabase
           .from('comments').select('id, content, created_at, user_id, post_id')
-          .in('post_id', postIds).order('created_at', { ascending: false }).limit(5)
+          .in('post_id', postIds).neq('user_id', userId).order('created_at', { ascending: false }).limit(5)
         const authors = [...new Set((cm || []).map((c: any) => c.user_id))]
         const { data: profs } = authors.length
           ? await supabase.from('profiles').select('id, full_name').in('id', authors)
@@ -95,11 +105,17 @@ export function GuiderHub() {
         })))
       }
 
-      // open conversations where students reached me
-      const { count } = await supabase
-        .from('conversations').select('id', { count: 'exact', head: true })
-        .eq('staff_id', userId)
-      setConvOpen(count || 0)
+      // conversations where a student is WAITING for my reply (unread incoming messages)
+      const { data: myConvs } = await supabase
+        .from('conversations').select('id').eq('staff_id', userId)
+      const convIds = (myConvs || []).map((c: any) => c.id)
+      if (convIds.length) {
+        const { data: unread } = await supabase
+          .from('messages').select('conversation_id')
+          .in('conversation_id', convIds).neq('sender_id', userId).is('read_at', null)
+        setWaiting(new Set((unread || []).map((m: any) => m.conversation_id)).size)
+      }
+      setLoading(false)
     }
     load()
   }, [userId])
@@ -121,10 +137,16 @@ export function GuiderHub() {
     <div className="anim-2">
       {/* ── What needs me now ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px,1fr))', gap: 14, marginBottom: 26 }}>
-        {canGrade && stat(<ClipboardList size={15} />, 'Waiting for my grading', totalUngraded, totalUngraded ? '#f59e0b' : '#10b981')}
-        {stat(<MessageCircle size={15} />, 'Student questions', questions.length, questions.length ? '#f59e0b' : '#10b981')}
-        {stat(<Send size={15} />, 'My conversations', convOpen, '#06b6d4')}
-        {stat(<BookOpen size={15} />, 'Courses I assist', assigns.length, '#8b5cf6')}
+        {loading ? [0, 1, 2, 3].map(i => <StatSkeleton key={i} />) : (
+          <>
+            {canGrade && stat(<ClipboardList size={15} />, 'Waiting for my grading', totalUngraded, totalUngraded ? '#f59e0b' : '#10b981')}
+            {stat(<MessageCircle size={15} />, 'Student questions', questions.length, questions.length ? '#f59e0b' : '#10b981')}
+            <Link href="/messages" style={{ textDecoration: 'none' }}>
+              {stat(<Send size={15} />, 'Students waiting', waiting, waiting ? '#f59e0b' : '#10b981')}
+            </Link>
+            {stat(<BookOpen size={15} />, 'Courses I assist', assigns.length, '#8b5cf6')}
+          </>
+        )}
       </div>
 
       {/* ── My delegations ── */}
@@ -180,6 +202,7 @@ export function GuiderHub() {
                   <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--accent)' }}>{q.course}</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--t)' }}>{q.author}:</span>
                   <span style={{ flex: 1, fontSize: 13, color: 'var(--t2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.content}</span>
+                  <span style={{ fontSize: 11, color: 'var(--t3)', flexShrink: 0 }}>{timeAgo(q.created_at)}</span>
                 </div>
               </Link>
             ))}
