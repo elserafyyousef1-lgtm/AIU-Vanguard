@@ -33,6 +33,17 @@ const relTime = (iso?: string): string => {
   return new Date(iso).toLocaleDateString('en-EG', { month: 'short', day: 'numeric' })
 }
 
+// Clock time for a bubble, and a Today/Yesterday/date label for day separators.
+const clockTime = (iso: string) => new Date(iso).toLocaleTimeString('en-EG', { hour: 'numeric', minute: '2-digit' })
+const dayLabel = (iso: string) => {
+  const d = new Date(iso); const now = new Date()
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+  const days = Math.round((startOf(now) - startOf(d)) / 86400000)
+  if (days === 0) return 'Today'
+  if (days === 1) return 'Yesterday'
+  return d.toLocaleDateString('en-EG', { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
 const roleLabel = (r?: string) =>
   r === 'owner' ? 'Owner' : r === 'admin' ? 'Admin' : r === 'doctor' ? 'Doctor' : r === 'master' ? 'Master' : r === 'guider' ? 'Guider' : 'Student'
 
@@ -74,8 +85,11 @@ export default function MessagesPage() {
   const [imgFile, setImgFile] = useState<File | null>(null)
   const [imgPreview, setImgPreview] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
+  const [loadError, setLoadError] = useState(false)          // distinguish a failed load from a truly-empty inbox
+  const [confirmDel, setConfirmDel] = useState<string | null>(null)  // two-step delete for a message
   const scrollRef = useRef<HTMLDivElement>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)   // so we can reset its auto-grown height after send
+  const pinnedRef = useRef(true)                    // is the thread scrolled to the bottom? (don't yank the user up)
 
   const scrollToBottom = useCallback(() => {
     const el = scrollRef.current
@@ -88,10 +102,12 @@ export default function MessagesPage() {
 
   const loadConvos = useCallback(async () => {
     if (!userId) return
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('conversations')
       .select(`*, student:student_id (id, full_name, role, avatar_url), staff:staff_id (id, full_name, role, avatar_url)`)
       .order('updated_at', { ascending: false })
+    if (error) { setLoadError(true); setLoading(false); return }
+    setLoadError(false)
     const list = (data as any) || []
 
     // Count unread messages (not sent by me, no read_at) per conversation
@@ -127,8 +143,18 @@ export default function MessagesPage() {
     }
   }, [userId])
 
-  useEffect(() => { if (activeId) { loadMessages(activeId).then(() => loadConvos()) } }, [activeId, loadMessages, loadConvos])
-  useEffect(() => { scrollToBottom() }, [messages, scrollToBottom])
+  useEffect(() => { if (activeId) { pinnedRef.current = true; loadMessages(activeId).then(() => loadConvos()) } }, [activeId, loadMessages, loadConvos])
+  // Only auto-scroll to the newest message when the user is already near the bottom — never
+  // yank them up out of history they're re-reading.
+  useEffect(() => { if (pinnedRef.current) scrollToBottom() }, [messages, scrollToBottom])
+
+  // Deep-link: /messages?c=<conversation_id> (from a message notification) opens that thread.
+  // Read from window (not useSearchParams) so the static page needs no Suspense boundary.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const c = new URLSearchParams(window.location.search).get('c')
+    if (c && convos.some(cv => cv.id === c)) setActiveId(c)
+  }, [convos])
 
   useEffect(() => {
     if (!userId) return
@@ -143,6 +169,14 @@ export default function MessagesPage() {
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [userId, activeId, loadMessages, loadConvos])
+
+  // Escape closes the New-message modal (backdrop click already does).
+  useEffect(() => {
+    if (!showNew) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowNew(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showNew])
 
   const openNew = async () => {
     // Who can a student message? Staff + anyone assigned to a course (TAs) — including
@@ -214,7 +248,8 @@ export default function MessagesPage() {
   }
 
   const pickImage = (file: File | null) => {
-    if (!file) { setImgFile(null); setImgPreview(null); return }
+    setImgPreview(prev => { if (prev) URL.revokeObjectURL(prev); return null })   // don't leak blobs
+    if (!file) { setImgFile(null); return }
     if (!file.type.startsWith('image/')) { toast.error('Please choose an image.'); return }
     if (file.size > 5 * 1024 * 1024) { toast.error('Image must be under 5 MB.'); return }
     setImgFile(file); setImgPreview(URL.createObjectURL(file))
@@ -280,7 +315,12 @@ export default function MessagesPage() {
               )}
             </div>
             <div style={{ overflowY: 'auto', flex: 1 }}>
-              {convos.length === 0 ? (
+              {loadError ? (
+                <div style={{ padding: 30, textAlign: 'center', color: 'var(--t3)', fontSize: 13.5 }}>
+                  <p style={{ marginBottom: 12 }}>Couldn't load your conversations.</p>
+                  <button onClick={() => { setLoading(true); loadConvos() }} style={{ padding: '7px 14px', borderRadius: 9, background: 'var(--accent)', color: 'white', border: 'none', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, fontFamily: 'var(--font)' }}>Try again</button>
+                </div>
+              ) : convos.length === 0 ? (
                 <div style={{ padding: 30, textAlign: 'center', color: 'var(--t3)', fontSize: 13.5 }}>
                   <MessageSquare size={28} style={{ margin: '0 auto 10px', opacity: 0.5 }} />
                   {'No conversations yet. Tap “New” to start a conversation.'}
@@ -335,41 +375,57 @@ export default function MessagesPage() {
                   </Link>
                 </div>
 
-                <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '18px 16px', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
+                <div ref={scrollRef}
+                  onScroll={e => { const el = e.currentTarget; pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80 }}
+                  style={{ flex: 1, overflowY: 'auto', padding: '18px 16px', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
                   {messages.length === 0 ? (
                     <div style={{ margin: 'auto', color: 'var(--t3)', fontSize: 13.5 }}>No messages yet. Say hello 👋</div>
-                  ) : messages.map(m => {
+                  ) : messages.map((m, i) => {
                     const mine = m.sender_id === userId
+                    const showDay = i === 0 || new Date(messages[i - 1].created_at).toDateString() !== new Date(m.created_at).toDateString()
                     return (
-                      <div key={m.id} style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                        {mine && (
-                          <button onClick={() => deleteMessage(m.id)} title="Delete" className="msg-del" style={{ background: 'none', border: 'none', color: 'var(--t3)', cursor: 'pointer', padding: 4, display: 'flex', flexShrink: 0 }}><Trash2 size={13} /></button>
+                      <div key={m.id}>
+                        {showDay && (
+                          <div style={{ textAlign: 'center', margin: '10px 0 8px' }}>
+                            <span style={{ padding: '3px 12px', borderRadius: 20, background: 'var(--s2)', border: '1px solid var(--br)', fontSize: 11, color: 'var(--t3)' }}>{dayLabel(m.created_at)}</span>
+                          </div>
                         )}
-                        <div
-                          onDoubleClick={() => toggleMessageLike(m)}
-                          title="Double-click to like"
-                          style={{
-                          position: 'relative',
-                          maxWidth: '72%', padding: m.image_url ? 4 : '10px 14px', borderRadius: 18,
-                          background: mine ? 'var(--accent)' : 'var(--s3)', color: mine ? 'white' : 'var(--t)',
-                          fontSize: 14.5, lineHeight: 1.45, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                          borderBottomRightRadius: mine ? 5 : 18, borderBottomLeftRadius: mine ? 18 : 5,
-                          cursor: 'pointer',
-                          marginBottom: m.liked_at ? 8 : 0,
-                        }}>
-                          {m.image_url && (
-                            <img src={m.image_url} alt="" onLoad={scrollToBottom} style={{ maxWidth: '100%', maxHeight: 280, borderRadius: 14, display: 'block', marginBottom: m.content ? 6 : 0 }} />
-                          )}
-                          {m.content && <span style={{ padding: m.image_url ? '0 8px 4px' : 0, display: 'block' }}>{m.content}</span>}
-                          {m.liked_at && (
-                            <div style={{
-                              position: 'absolute', bottom: -10, [mine ? 'left' : 'right']: 8,
-                              background: 'var(--s2)', border: '1px solid var(--br)', borderRadius: 12,
-                              padding: '1px 5px', display: 'flex', alignItems: 'center',
-                            }}>
-                              <Heart size={11} fill="var(--accent-red)" color="var(--accent-red)" />
-                            </div>
-                          )}
+                        <div style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                          {mine && (confirmDel === m.id ? (
+                            <span style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                              <button onClick={() => { deleteMessage(m.id); setConfirmDel(null) }} style={{ background: 'var(--accent-red, #ef4444)', border: 'none', color: 'white', borderRadius: 7, fontSize: 10.5, fontWeight: 700, padding: '3px 8px', cursor: 'pointer' }}>Delete</button>
+                              <button onClick={() => setConfirmDel(null)} title="Cancel" style={{ background: 'var(--s3)', border: '1px solid var(--br)', color: 'var(--t3)', borderRadius: 7, fontSize: 11, padding: '3px 6px', cursor: 'pointer' }}>✕</button>
+                            </span>
+                          ) : (
+                            <button onClick={() => setConfirmDel(m.id)} title="Delete" className="msg-del" style={{ background: 'none', border: 'none', color: 'var(--t3)', cursor: 'pointer', padding: 4, display: 'flex', flexShrink: 0 }}><Trash2 size={13} /></button>
+                          ))}
+                          <div
+                            onDoubleClick={() => toggleMessageLike(m)}
+                            title="Double-click to like"
+                            style={{
+                            position: 'relative',
+                            maxWidth: '72%', padding: m.image_url ? 4 : '9px 14px 7px', borderRadius: 18,
+                            background: mine ? 'var(--accent)' : 'var(--s3)', color: mine ? 'white' : 'var(--t)',
+                            fontSize: 14.5, lineHeight: 1.45, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                            borderBottomRightRadius: mine ? 5 : 18, borderBottomLeftRadius: mine ? 18 : 5,
+                            cursor: 'pointer',
+                            marginBottom: m.liked_at ? 8 : 0,
+                          }}>
+                            {m.image_url && (
+                              <img src={m.image_url} alt="" onLoad={() => { if (pinnedRef.current) scrollToBottom() }} style={{ maxWidth: '100%', maxHeight: 280, borderRadius: 14, display: 'block', marginBottom: m.content ? 6 : 0 }} />
+                            )}
+                            {m.content && <span style={{ padding: m.image_url ? '0 8px' : 0, display: 'block' }}>{m.content}</span>}
+                            <span style={{ display: 'block', fontSize: 10, opacity: 0.6, marginTop: 3, textAlign: mine ? 'right' : 'left', padding: m.image_url ? '0 8px' : 0 }}>{clockTime(m.created_at)}</span>
+                            {m.liked_at && (
+                              <div style={{
+                                position: 'absolute', bottom: -10, [mine ? 'left' : 'right']: 8,
+                                background: 'var(--s2)', border: '1px solid var(--br)', borderRadius: 12,
+                                padding: '1px 5px', display: 'flex', alignItems: 'center',
+                              }}>
+                                <Heart size={11} fill="var(--accent-red)" color="var(--accent-red)" />
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     )
@@ -396,7 +452,7 @@ export default function MessagesPage() {
                   <div style={{ padding: '12px 16px', display: 'flex', gap: 10, alignItems: 'flex-end' }}>
                     <label style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0, cursor: 'pointer', background: 'var(--s3)', border: '1px solid var(--br)', color: 'var(--t2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Send image">
                       <ImageIcon size={17} />
-                      <input type="file" accept="image/*" onChange={e => pickImage(e.target.files?.[0] || null)} style={{ display: 'none' }} />
+                      <input type="file" accept="image/*" onChange={e => { pickImage(e.target.files?.[0] || null); e.currentTarget.value = '' }} style={{ display: 'none' }} />
                     </label>
                     <textarea
                       ref={taRef}
