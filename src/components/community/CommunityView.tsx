@@ -1,6 +1,6 @@
 'use client'
 // src/components/community/CommunityView.tsx
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { SiteNavView } from '@/components/layout/SiteNavView'
@@ -66,6 +66,10 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
   const [reqCodes, setReqCodes] = useState<string[]>([])
   const [showReqs, setShowReqs] = useState(false)
   const [showCourses, setShowCourses] = useState(false)
+  const [loadError, setLoadError] = useState(false)          // failed load vs truly-empty feed
+  const [lightbox, setLightbox] = useState<string | null>(null)  // full-size image viewer
+  const [confirmDelPost, setConfirmDelPost] = useState<string | null>(null)  // two-step post delete
+  const deepLinked = useRef(false)                            // resolve a #post-xxx deep link once
 
   // Compact tag-button style (shared by the composer). Requirement courses (not in the
   // static COURSES map) fall back to the sky accent used by the requirements track.
@@ -111,22 +115,36 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
 
     const { data, error } = await query
 
-    if (!error && data) setPosts(data)
+    if (error) { setLoadError(true); setLoading(false); return }
+    setLoadError(false)
+    setPosts(data || [])
     setLoading(false)
   }, [courseFilter])
 
   useEffect(() => { loadPosts() }, [loadPosts])
-
-  // Deep link: if URL has #post-xxx, scroll to it and highlight briefly
+  // Reset the two-step delete confirmation whenever the post menu closes.
+  useEffect(() => { if (!menuOpen) setConfirmDelPost(null) }, [menuOpen])
+  // Escape closes the image lightbox (backdrop click also closes).
   useEffect(() => {
-    if (loading) return
+    if (!lightbox) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setLightbox(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [lightbox])
+
+  // Deep link: if URL has #post-xxx, scroll to it and highlight ONCE per mount. Guarded by a
+  // ref so realtime refreshes (any like/comment) can't keep yanking the reader back to it.
+  useEffect(() => {
+    if (loading || deepLinked.current) return
     const hash = window.location.hash
     if (!hash.startsWith('#post-')) return
     const el = document.getElementById(hash.slice(1))
     if (!el) return
+    deepLinked.current = true
     el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     el.style.transition = 'box-shadow 0.3s'
     el.style.boxShadow = '0 0 0 2px var(--accent)'
+    history.replaceState(null, '', window.location.pathname)  // don't re-jump on a later refresh
     const t = setTimeout(() => { el.style.boxShadow = '' }, 2000)
     return () => clearTimeout(t)
   }, [loading, posts])
@@ -144,7 +162,8 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
 
   // Handle picking an image (with basic validation)
   const handleImagePick = (file: File | null) => {
-    if (!file) { setImageFile(null); setImagePreview(null); return }
+    setImagePreview(prev => { if (prev) URL.revokeObjectURL(prev); return null })  // don't leak blobs
+    if (!file) { setImageFile(null); return }
     if (!file.type.startsWith('image/')) {
       toast.error('Please choose an image file.')
       return
@@ -518,7 +537,7 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={e => handleImagePick(e.target.files?.[0] || null)}
+                  onChange={e => { handleImagePick(e.target.files?.[0] || null); e.currentTarget.value = '' }}
                   style={{ display:'none' }}
                 />
               </label>
@@ -534,7 +553,7 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
                   type="file"
                   accept="application/pdf"
                   multiple
-                  onChange={e => handlePdfPick(e.target.files)}
+                  onChange={e => { handlePdfPick(e.target.files); e.currentTarget.value = '' }}
                   style={{ display:'none' }}
                 />
               </label>
@@ -628,10 +647,16 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
               </div>
             ))}
           </div>
+        ) : loadError ? (
+          <div style={{ textAlign:'center', padding:60, color:'var(--t3)' }}>
+            <div style={{ fontSize:36, marginBottom:12 }}>⚠️</div>
+            <p style={{ marginBottom:14 }}>Couldn't load the feed. Check your connection.</p>
+            <button onClick={() => { setLoading(true); loadPosts() }} style={{ padding:'8px 16px', borderRadius:10, background:'var(--accent)', color:'white', border:'none', cursor:'pointer', fontSize:13, fontWeight:700, fontFamily:'var(--font)' }}>Try again</button>
+          </div>
         ) : posts.length === 0 ? (
           <div style={{ textAlign:'center', padding:60, color:'var(--t3)' }}>
             <div style={{ fontSize:36, marginBottom:12 }}>💬</div>
-            <p>No posts yet — be the first to share something!</p>
+            <p>{canPost ? 'No posts yet — be the first to share something!' : 'Nothing here yet. Your instructor’s announcements and resources will appear here.'}</p>
           </div>
         ) : (
           <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
@@ -715,15 +740,28 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
                                 }}
                               ><Pencil size={14} /> Edit</button>
                             )}
-                            <button
-                              onClick={() => deletePost(post.id)}
-                              style={{
-                                display:'flex', alignItems:'center', gap:8, width:'100%',
-                                padding:'8px 10px', borderRadius:7, background:'none',
-                                border:'none', color:'var(--accent-red)', cursor:'pointer',
-                                fontSize:13, fontFamily:'var(--font)', textAlign:'left',
-                              }}
-                            ><Trash2 size={14} /> Delete</button>
+                            {confirmDelPost === post.id ? (
+                              <div style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 8px' }}>
+                                <button
+                                  onClick={() => { deletePost(post.id); setConfirmDelPost(null); setMenuOpen(null) }}
+                                  style={{ flex:1, padding:'7px 8px', borderRadius:7, background:'var(--accent-red, #ef4444)', border:'none', color:'white', cursor:'pointer', fontSize:12.5, fontWeight:700, fontFamily:'var(--font)' }}
+                                >Delete</button>
+                                <button
+                                  onClick={() => setConfirmDelPost(null)}
+                                  style={{ padding:'7px 8px', borderRadius:7, background:'var(--s2)', border:'1px solid var(--br)', color:'var(--t3)', cursor:'pointer', fontSize:12.5, fontFamily:'var(--font)' }}
+                                >Cancel</button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setConfirmDelPost(post.id)}
+                                style={{
+                                  display:'flex', alignItems:'center', gap:8, width:'100%',
+                                  padding:'8px 10px', borderRadius:7, background:'none',
+                                  border:'none', color:'var(--accent-red)', cursor:'pointer',
+                                  fontSize:13, fontFamily:'var(--font)', textAlign:'left',
+                                }}
+                              ><Trash2 size={14} /> Delete</button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -771,14 +809,16 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
                     )
                   )}
 
-                  {/* Image (if any) */}
+                  {/* Image (if any) — contain (never crop away a slide/proof) + tap to view full size */}
                   {post.image_url && (
                     <img
                       src={post.image_url}
-                      alt="post"
+                      alt={`Image posted by ${post.profiles?.full_name || 'a user'}`}
+                      onClick={() => setLightbox(post.image_url)}
                       style={{
                         width:'100%', borderRadius:14, marginBottom:14,
-                        border:'1px solid var(--br)', maxHeight:480, objectFit:'cover',
+                        border:'1px solid var(--br)', maxHeight:480, objectFit:'contain',
+                        background:'var(--s1)', cursor:'zoom-in',
                       }}
                     />
                   )}
@@ -929,7 +969,7 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
                                   )
                                 })()}
                                 <p style={{ fontSize:13.5, color:'var(--t2)', lineHeight:1.5, marginTop:2, whiteSpace:'pre-wrap' }}>
-                                  {c.content}
+                                  <Linkify text={c.content} />
                                 </p>
                                 <div style={{ display:'flex', alignItems:'center', gap:16, marginTop:5 }}>
                                 {(() => {
@@ -1030,6 +1070,13 @@ export function CommunityView({ courseFilter }: { courseFilter: string | null })
           </div>
         )}
       </main>
+
+      {/* Full-size image viewer */}
+      {lightbox && (
+        <div onClick={() => setLightbox(null)} style={{ position:'fixed', inset:0, zIndex:200, background:'rgba(0,0,0,0.92)', display:'flex', alignItems:'center', justifyContent:'center', padding:20, cursor:'zoom-out' }}>
+          <img src={lightbox} alt="" style={{ maxWidth:'95vw', maxHeight:'95vh', objectFit:'contain', borderRadius:8 }} />
+        </div>
+      )}
       {/* CommandPalette is rendered by SiteNav */}
     </>
   )
