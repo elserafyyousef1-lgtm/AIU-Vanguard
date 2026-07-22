@@ -48,6 +48,7 @@ export function CourseClient({ course }: Props) {
   ]
   const [activeTab, setActiveTab] = useState(legacyTabs[0]?.id || '')
   const [aiOpen, setAiOpen] = useState(false)
+  const [currentLecture, setCurrentLecture] = useState<string | undefined>(undefined)  // for the AI tutor's context
 
   const isCSE221 = course.slug === 'CSE221'
   const isMAT312 = course.slug === 'MAT312'
@@ -165,7 +166,7 @@ export function CourseClient({ course }: Props) {
 
         {/* Tab content */}
         <div className="anim-3">
-          {(isCSE221 || isMAT312 || isAIE121) && activeTab === 'lectures' && <LecturesTab lectures={lectures} course={course} />}
+          {(isCSE221 || isMAT312 || isAIE121) && activeTab === 'lectures' && <LecturesTab lectures={lectures} course={course} onLectureChange={setCurrentLecture} />}
           {(isCSE221 || isMAT312 || isAIE121) && activeTab === 'exam' && <ExamTab questions={questions} course={course} />}
           {(isMAT312 || isAIE121) && activeTab === 'flashcards' && <FlashcardsTab cards={isAIE121 ? AIE121_FLASHCARDS : MAT312_FLASHCARDS} />}
           {isMAT312 && activeTab === 'formulas' && <FormulaSheetPlaceholder />}
@@ -179,6 +180,7 @@ export function CourseClient({ course }: Props) {
           courseSlug={course.slug}
           onClose={() => setAiOpen(false)}
           quickChips={isCSE221 ? CSE221_QUICK_CHIPS : isAIE121 ? AIE121_QUICK_CHIPS : isMAT312 ? MAT312_QUICK_CHIPS : []}
+          currentLecture={currentLecture}
         />
       )}
     </>

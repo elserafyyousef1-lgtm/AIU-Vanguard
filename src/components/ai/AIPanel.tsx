@@ -1,10 +1,11 @@
 'use client'
 // src/components/ai/AIPanel.tsx
 import { useState, useRef, useEffect } from 'react'
-import { X, Send, Sparkles, Copy, Check, MessageSquare, Target, FileText, Image as ImageIcon } from 'lucide-react'
+import { X, Send, Sparkles, Copy, Check, MessageSquare, Target, FileText, Image as ImageIcon, CalendarDays } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { QuizView } from './QuizView'
 import { ExamView } from './ExamView'
+import { StudyPlanView } from './StudyPlanView'
 import { CSE221_AI_PROMPT } from '@/lib/data/cse221'
 import { MAT312_AI_PROMPT } from '@/lib/data/mat312'
 import { AIE121_AI_PROMPT } from '@/lib/data/aie121'
@@ -29,6 +30,7 @@ interface Props {
   courseSlug: string
   onClose: () => void
   quickChips?: string[]
+  currentLecture?: string   // the lecture/sheet the student is viewing, so "explain this" has context
 }
 
 const MAX_HISTORY = 20
@@ -43,7 +45,7 @@ const STUDY_ACTIONS: { label: string; prompt: string }[] = [
   { label: '📅 Study plan', prompt: 'اعملي خطة مذاكرة مرتّبة بالأولوية للمادة دي: ركّز على نقط ضعفي وأهم المواضيع للامتحان من مواد المادة، واقسمها لخطوات واضحة. / Build me a prioritized study plan for this course: focus on my weak areas and the most exam-relevant topics from the course materials, broken into clear steps.' },
 ]
 
-export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
+export function AIPanel({ courseSlug, onClose, quickChips = [], currentLecture }: Props) {
   // Session storage key — unique per course, cleared when the site is fully closed
   const storageKey = `vanguard-ai-chat-${courseSlug}`
 
@@ -64,7 +66,7 @@ export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
   const [isStreaming, setIsStreaming] = useState(false)  // stays the lock for the WHOLE stream
   const [showChips, setShowChips] = useState(true)
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
-  const [mode, setMode] = useState<'chat' | 'quiz' | 'exam'>('chat')  // chat = tutor, quiz = MCQ drill, exam = full mock exam
+  const [mode, setMode] = useState<'chat' | 'quiz' | 'exam' | 'plan'>('chat')  // tutor / MCQ drill / mock exam / study plan
   const [usePro, setUsePro] = useState(false)            // false = free (Gemini), true = pro (Claude)
   const [limitHit, setLimitHit] = useState(false)        // free limit reached → offer upgrade
   const [lastQuestion, setLastQuestion] = useState('')   // resend this when upgrading
@@ -82,6 +84,7 @@ export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
     courseCode: courseInfo?.code,
     courseName: courseInfo?.title,
     instructor: courseInfo?.instructor,
+    currentLecture,
   })
 
   useEffect(() => {
@@ -345,7 +348,8 @@ export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
         }}>
           {([
             { key:'chat', label:'Chat', icon:<MessageSquare size={13} /> },
-            { key:'quiz', label:'Quiz me', icon:<Target size={13} /> },
+            { key:'quiz', label:'Quiz', icon:<Target size={13} /> },
+            { key:'plan', label:'Plan', icon:<CalendarDays size={13} /> },
           ] as const).map(t => (
             <button
               key={t.key}
@@ -367,6 +371,8 @@ export function AIPanel({ courseSlug, onClose, quickChips = [] }: Props) {
           <QuizView courseSlug={courseSlug} courseName={courseInfo?.title} onExit={() => setMode('chat')} onStartExam={() => setMode('exam')} />
         ) : mode === 'exam' ? (
           <ExamView courseSlug={courseSlug} courseName={courseInfo?.title} onExit={() => setMode('chat')} />
+        ) : mode === 'plan' ? (
+          <StudyPlanView courseSlug={courseSlug} courseName={courseInfo?.title} onExit={() => setMode('chat')} />
         ) : (
         <>
         {/* Messages */}

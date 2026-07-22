@@ -1,6 +1,6 @@
 'use client'
 // src/components/course/LecturesTab.tsx
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Lecture, Course } from '@/types'
 import { AIE121_HTML } from '@/lib/data/aie121_sheets'
 import { CSE221_HTML } from '@/lib/data/cse221_sheets'
@@ -11,6 +11,7 @@ import 'katex/dist/katex.min.css'  // styles the pre-rendered KaTeX HTML in the 
 interface Props {
   lectures: Lecture[]
   course: { slug: string; color: string }
+  onLectureChange?: (name: string) => void   // report the open lecture up, so the AI tutor knows the context
 }
 
 const LECTURE_NAMES: Record<string, Record<number, string>> = {
@@ -33,12 +34,19 @@ const LECTURE_NAMES: Record<string, Record<number, string>> = {
   },
 }
 
-export function LecturesTab({ lectures, course }: Props) {
+export function LecturesTab({ lectures, course, onLectureChange }: Props) {
   const [active, setActive] = useState(1)
   const htmlMap = course.slug === 'CSE221' ? CSE221_HTML
     : course.slug === 'AIE121' ? AIE121_HTML
     : MAT312_HTML
   const nameMap = LECTURE_NAMES[course.slug] || {}
+
+  // Report the currently-open lecture name up (for the AI tutor's context).
+  useEffect(() => {
+    const name = nameMap[active] || lectures.find(l => l.number === active)?.title
+    if (name) onLectureChange?.(name)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, course.slug])
 
   return (
     <div>
