@@ -3,7 +3,8 @@
 // ───────────────────────────────────────────────────────────
 // Canvas-style course modules: weeks → items (lecture/file/video/…).
 // Staff (owner/admin or assigned doctor/master/guider) can add weeks,
-// upload PDFs (auto-indexed for the AI tutor via RAG), and add links.
+// upload PDFs and PowerPoints (.pptx) — auto-indexed for the AI tutor
+// via RAG — and add links.
 // Students get read-only access. Functional layout only — visual
 // polish is a later phase.
 // ───────────────────────────────────────────────────────────
@@ -24,6 +25,8 @@ const ICON: Record<string, any> = {
   video: Video, lab: BookOpen, quiz: GraduationCap, assignment: GraduationCap,
   page: FileText, link: LinkIcon, discussion: FileText,
 }
+
+const PPTX_MIME = 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
 
 export default function CourseModulesPage() {
   const params = useParams()
@@ -85,19 +88,26 @@ export default function CourseModulesPage() {
     load()
   }
 
-  const uploadPdf = async (weekId: string, file: File | null) => {
+  const uploadFile = async (weekId: string, file: File | null) => {
     if (!file || !course) return
-    if (file.type !== 'application/pdf') return toast.error('PDF files only for now.')
+    // Accept PDF and PowerPoint (.pptx). Some browsers leave File.type empty,
+    // so fall back to the filename extension.
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
+    const isPptx = file.type === PPTX_MIME || /\.pptx$/i.test(file.name)
+    if (!isPdf && !isPptx) return toast.error('Upload a PDF or a PowerPoint (.pptx).')
     if (file.size > 20 * 1024 * 1024) return toast.error('Max 20 MB.')
     setBusy(true)
     try {
       const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
       const path = `${course.id}/${Date.now()}-${safe}`
-      const { error: upErr } = await supabase.storage.from('course-materials').upload(path, file)
+      // Pass the resolved content-type explicitly (the storage bucket gates on it,
+      // and pptx files sometimes arrive with an empty File.type).
+      const contentType = isPptx ? PPTX_MIME : 'application/pdf'
+      const { error: upErr } = await supabase.storage.from('course-materials').upload(path, file, { contentType })
       if (upErr) throw upErr
       const { data: pub } = supabase.storage.from('course-materials').getPublicUrl(path)
       const count = modules.filter(m => m.week_id === weekId).length
-      const title = file.name.replace(/\.pdf$/i, '')
+      const title = file.name.replace(/\.(pdf|pptx)$/i, '')
       const { data: mod, error } = await supabase.from('modules')
         .insert({ week_id: weekId, title, type: 'file', file_url: pub.publicUrl, order_index: count, created_by: userId })
         .select().single()
@@ -222,7 +232,7 @@ export default function CourseModulesPage() {
           <h1 style={{ fontSize: 'clamp(22px,4vw,30px)', fontWeight: 800, color: 'var(--t)' }}>{course.title}</h1>
           <p style={{ color: 'var(--t2)', marginTop: 6, fontSize: 14 }}>
             {canManage
-              ? 'Add weeks and upload materials. PDFs are auto-indexed so the AI tutor can answer from them.'
+              ? 'Add weeks and upload materials. PDFs and PowerPoints (.pptx) are auto-indexed so the AI tutor can answer from them.'
               : 'Course materials, organised by week.'}
           </p>
         </div>
@@ -308,9 +318,9 @@ export default function CourseModulesPage() {
                       {canManage && (
                         <div style={{ display: 'flex', gap: 8, padding: '8px 12px 4px', flexWrap: 'wrap' }}>
                           <label style={{ ...btnGhost, cursor: busy ? 'wait' : 'pointer' }}>
-                            {busy ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} Upload PDF
-                            <input type="file" accept="application/pdf" style={{ display: 'none' }} disabled={busy}
-                              onChange={e => { uploadPdf(w.id, e.target.files?.[0] || null); e.target.value = '' }} />
+                            {busy ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} Upload PDF / PPTX
+                            <input type="file" accept={`application/pdf,.pptx,${PPTX_MIME}`} style={{ display: 'none' }} disabled={busy}
+                              onChange={e => { uploadFile(w.id, e.target.files?.[0] || null); e.target.value = '' }} />
                           </label>
                           <button onClick={() => addLink(w.id)} style={btnGhost}><LinkIcon size={14} /> Link</button>
                           <button onClick={() => addVideo(w.id)} style={btnGhost}><Video size={14} /> Video</button>

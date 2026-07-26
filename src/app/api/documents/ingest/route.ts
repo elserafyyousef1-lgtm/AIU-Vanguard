@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { extractText, getDocumentProxy } from 'unpdf'
+import { extractPptxText } from '@/lib/ai/pptx'
 import { chunkText } from '@/lib/ai/chunk'
 import { embedText, toVectorLiteral } from '@/lib/ai/embeddings'
 
@@ -68,15 +69,25 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // 2) Download + extract text.
-    const pdfRes = await fetch(fileUrl)
-    if (!pdfRes.ok) throw new Error('Could not download the PDF file.')
-    const bytes = new Uint8Array(await pdfRes.arrayBuffer())
-    const pdf = await getDocumentProxy(bytes)
-    const { text } = await extractText(pdf, { mergePages: true })
-    const fullText = Array.isArray(text) ? text.join('\n\n') : text
-    if (!fullText || fullText.trim().length < 30) {
-      throw new Error('No extractable text found (is this a scanned/image-only PDF?).')
+    // 2) Download + extract text. PDFs go through unpdf; PowerPoint (.pptx)
+    //    goes through our dependency-free slide-text extractor.
+    const fileRes = await fetch(fileUrl)
+    if (!fileRes.ok) throw new Error('Could not download the uploaded file.')
+    const bytes = new Uint8Array(await fileRes.arrayBuffer())
+    const isPptx = /\.pptx$/i.test(parsedUrl.pathname)
+    let fullText: string
+    if (isPptx) {
+      fullText = extractPptxText(bytes)
+      if (!fullText || fullText.trim().length < 30) {
+        throw new Error('No text found in the PowerPoint (are the slides mostly images?).')
+      }
+    } else {
+      const pdf = await getDocumentProxy(bytes)
+      const { text } = await extractText(pdf, { mergePages: true })
+      fullText = Array.isArray(text) ? text.join('\n\n') : text
+      if (!fullText || fullText.trim().length < 30) {
+        throw new Error('No extractable text found (is this a scanned/image-only PDF?).')
+      }
     }
 
     // 3) Chunk.

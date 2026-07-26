@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Midterm — Computer Architecture (CSE132) · Fully Solved</title>
+<meta name="description" content="A complete, fully-worked midterm for CSE132 Computer Architecture & Organization — CMOS logic, parallelism, division, the ALU, and finite-state machines, solved step by step." />
+<style>
+  /* ─────────────────────────────────────────────────────────────
+     CSE132 — Solved Midterm · study edition
+     Identity: engineering "blueprint on paper" — the professor writes
+     in blue ink, so blue ink is the primary accent; copper marks the
+     boxed final answers (solder / trace copper). Scholarly serif for
+     headings (this is a textbook subject — Harris DDCA), clean sans
+     for reading, monospace everywhere logic lives (binary, F2:0,
+     truth tables, registers).
+     ───────────────────────────────────────────────────────────── */
+  :root {
+    --paper:     #f5f3ee;   /* warm engineering paper            */
+    --card:      #fffdf8;   /* sheet                              */
+    --ink:       #191d27;   /* near-black, faint blue bias        */
+    --ink-2:     #46505f;   /* secondary text                    */
+    --ink-3:     #79818f;   /* captions / eyebrows               */
+    --rule:      #e4ded1;   /* hairline                          */
+    --rule-2:    #d3ccbc;   /* stronger hairline                 */
+    --blue:      #234fbf;   /* the professor's pen — primary     */
+    --blue-soft: #edf1fb;   /* blue tint fill                    */
+    --copper:    #a4611f;   /* boxed answers, key results        */
+    --copper-soft:#f8efe1;
+    --grid:      #ece6d8;   /* schematic grid                    */
+    --good:      #2f7d4f;
+    --shadow:    0 1px 2px rgba(25,29,39,.05), 0 8px 30px rgba(25,29,39,.06);
+    --serif: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", "Palatino", Georgia, "Times New Roman", serif;
+    --sans:  -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono:  ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", "Consolas", "Liberation Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:#0e1320; --card:#151b2a; --ink:#e9ecf4; --ink-2:#aab4c6;
+      --ink-3:#7c8598; --rule:#25304a; --rule-2:#324063; --blue:#7aa0ff;
+      --blue-soft:#182448; --copper:#e3a769; --copper-soft:#2a2113;
+      --grid:#202b44; --good:#63c98d;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 34px rgba(0,0,0,.34);
+    }
+  }
+  :root[data-theme="light"] {
+    --paper:#f5f3ee; --card:#fffdf8; --ink:#191d27; --ink-2:#46505f; --ink-3:#79818f;
+    --rule:#e4ded1; --rule-2:#d3ccbc; --blue:#234fbf; --blue-soft:#edf1fb;
+    --copper:#a4611f; --copper-soft:#f8efe1; --grid:#ece6d8; --good:#2f7d4f;
+    --shadow:0 1px 2px rgba(25,29,39,.05), 0 8px 30px rgba(25,29,39,.06);
+  }
+  :root[data-theme="dark"] {
+    --paper:#0e1320; --card:#151b2a; --ink:#e9ecf4; --ink-2:#aab4c6; --ink-3:#7c8598;
+    --rule:#25304a; --rule-2:#324063; --blue:#7aa0ff; --blue-soft:#182448;
+    --copper:#e3a769; --copper-soft:#2a2113; --grid:#202b44; --good:#63c98d;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 34px rgba(0,0,0,.34);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--sans); line-height: 1.65;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+  /* subtle engineering grid behind the paper */
+  body::before {
+    content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 26px 26px; opacity: .5;
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 20%, transparent 75%);
+            mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 20%, transparent 75%);
+  }
+  .wrap { position: relative; z-index: 1; max-width: 820px; margin: 0 auto; padding: 0 22px 96px; }
+
+  /* progress + sticky index */
+  #bar { position: fixed; top: 0; left: 0; height: 3px; width: 0; background: var(--blue); z-index: 40; transition: width .12s linear; }
+  .topnav {
+    position: sticky; top: 0; z-index: 30; margin: 0 -22px 0; padding: 10px 22px;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    backdrop-filter: blur(8px); border-bottom: 1px solid var(--rule);
+  }
+  .topnav .brand { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--ink); }
+  .topnav .dot { color: var(--copper); }
+  .chips { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+  .chips a {
+    font-family: var(--mono); font-size: 11.5px; text-decoration: none; color: var(--ink-2);
+    border: 1px solid var(--rule-2); border-radius: 999px; padding: 3px 9px; transition: all .15s;
+  }
+  .chips a:hover { color: #fff; background: var(--blue); border-color: var(--blue); }
+  .tgl { cursor: pointer; border: 1px solid var(--rule-2); background: var(--card); color: var(--ink-2);
+         border-radius: 8px; width: 30px; height: 27px; display: grid; place-items: center; font-size: 14px; }
+  .tgl:hover { color: var(--blue); border-color: var(--blue); }
+
+  /* hero */
+  header.hero { padding: 46px 0 26px; border-bottom: 2px solid var(--ink); }
+  .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--copper); font-weight: 700; }
+  h1 { font-family: var(--serif); font-weight: 700; font-size: clamp(30px, 6vw, 52px); line-height: 1.04;
+       letter-spacing: -.01em; margin: 12px 0 8px; text-wrap: balance; }
+  .sub { font-size: clamp(15px, 2.4vw, 18px); color: var(--ink-2); max-width: 60ch; }
+  .meta { display: flex; gap: 8px 20px; flex-wrap: wrap; margin-top: 20px; font-size: 13.5px; color: var(--ink-2); }
+  .meta b { color: var(--ink); font-weight: 600; }
+  .meta .k { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); display: block; }
+
+  /* how-to note */
+  .note {
+    margin-top: 22px; background: var(--card); border: 1px solid var(--rule); border-left: 3px solid var(--blue);
+    border-radius: 10px; padding: 15px 17px; font-size: 14px; color: var(--ink-2); box-shadow: var(--shadow);
+  }
+  .note b { color: var(--ink); }
+  .note .ar { direction: rtl; text-align: right; font-size: 14.5px; margin-top: 8px; line-height: 1.9; }
+
+  /* question blocks */
+  section.q { margin-top: 40px; scroll-margin-top: 64px; }
+  .qhead { display: flex; align-items: baseline; gap: 12px; border-bottom: 1px solid var(--rule-2); padding-bottom: 9px; }
+  .qnum { font-family: var(--mono); font-weight: 700; font-size: 13px; letter-spacing: .1em; color: var(--blue);
+          border: 1.5px solid var(--blue); border-radius: 7px; padding: 3px 8px; white-space: nowrap; }
+  .qtag { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin-left: auto; }
+  h2 { font-family: var(--serif); font-weight: 700; font-size: clamp(20px, 3.4vw, 26px); margin: 0; letter-spacing: -.01em; }
+
+  .prompt {
+    margin: 16px 0 6px; background: var(--blue-soft); border: 1px solid color-mix(in srgb, var(--blue) 22%, transparent);
+    border-radius: 10px; padding: 14px 16px; font-size: 14.5px; color: var(--ink);
+  }
+  .prompt .pl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--blue); font-weight: 700; display: block; margin-bottom: 5px; }
+  .prompt ul, .prompt ol { margin: 6px 0 0; padding-left: 20px; }
+  .prompt li { margin: 3px 0; }
+
+  /* the professor's real question — shown exactly as on the exam paper */
+  .qcard { margin: 16px 0 4px; }
+  .ql { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+        color: var(--blue); font-weight: 700; display: flex; align-items: center; gap: 7px; margin-bottom: 9px; }
+  .ql .ar { direction: rtl; font-family: var(--sans); letter-spacing: normal; text-transform: none; font-weight: 600; color: var(--ink-2); font-size: 12.5px; }
+  a.qframe { display: block; border: 1px solid var(--rule-2); border-radius: 12px; overflow: hidden;
+             background: #fbfaf6; box-shadow: var(--shadow); }
+  a.qframe img { display: block; width: 100%; height: auto; }
+  a.qframe:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+  .qhint { font-size: 12px; color: var(--ink-3); margin-top: 7px; direction: rtl; text-align: right; }
+  .solband { display: flex; align-items: center; gap: 10px; margin: 24px 0 4px; }
+  .solband .t { font-family: var(--serif); font-weight: 700; font-size: 18px; color: var(--copper); white-space: nowrap; }
+  .solband .t .ar { font-family: var(--sans); font-size: 14px; color: var(--ink-2); font-weight: 600; }
+  .solband .ln { flex: 1; height: 1px; background: var(--rule-2); }
+
+  .sol { margin-top: 16px; }
+  .step { display: flex; gap: 13px; padding: 4px 0; }
+  .step .n { flex: 0 0 auto; width: 25px; height: 25px; border-radius: 50%; background: var(--ink); color: var(--paper);
+             font-family: var(--mono); font-size: 12.5px; font-weight: 700; display: grid; place-items: center; margin-top: 2px; }
+  .step .b { flex: 1; min-width: 0; }
+  .step .b p { margin: 0 0 6px; }
+  h3 { font-size: 15px; font-weight: 700; margin: 22px 0 8px; color: var(--ink); letter-spacing: -.01em; }
+  p { margin: 0 0 12px; }
+  a.inline { color: var(--blue); }
+
+  /* the boxed final answer — copper */
+  .answer {
+    margin: 16px 0; background: var(--copper-soft); border: 1.5px solid color-mix(in srgb, var(--copper) 40%, transparent);
+    border-radius: 12px; padding: 14px 17px; box-shadow: var(--shadow);
+  }
+  .answer .lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--copper); font-weight: 700; }
+  .answer .val { font-family: var(--serif); font-size: clamp(19px, 3.2vw, 24px); font-weight: 700; margin-top: 3px; color: var(--ink); }
+  .answer.small .val { font-size: 17px; }
+
+  /* intuition — Arabic aside */
+  .idea { margin: 14px 0; border-radius: 10px; border: 1px dashed var(--rule-2); background: color-mix(in srgb, var(--card) 70%, transparent);
+          padding: 11px 14px; direction: rtl; text-align: right; font-size: 14px; color: var(--ink-2); line-height: 1.85; }
+  .idea b { color: var(--copper); font-family: var(--sans); }
+
+  /* math / logic */
+  .m  { font-family: var(--mono); }
+  .eq { font-family: var(--mono); background: var(--card); border: 1px solid var(--rule); border-radius: 8px;
+        padding: 10px 13px; margin: 10px 0; font-size: 14.5px; overflow-x: auto; white-space: nowrap; }
+  .eq b { color: var(--blue); }
+  .ovl { text-decoration: overline; }
+  kbd { font-family: var(--mono); background: var(--blue-soft); border: 1px solid color-mix(in srgb, var(--blue) 22%, transparent);
+        border-radius: 5px; padding: 1px 6px; font-size: 12.5px; color: var(--ink); }
+
+  /* tables */
+  .tbl-wrap { overflow-x: auto; margin: 14px 0; border: 1px solid var(--rule-2); border-radius: 10px; box-shadow: var(--shadow); }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; background: var(--card); }
+  th, td { padding: 8px 11px; text-align: center; border-bottom: 1px solid var(--rule); border-right: 1px solid var(--rule); }
+  th:last-child, td:last-child { border-right: none; }
+  thead th { background: color-mix(in srgb, var(--ink) 5%, var(--card)); font-family: var(--mono); font-size: 11.5px;
+             letter-spacing: .04em; text-transform: none; color: var(--ink); font-weight: 700; position: sticky; top: 0; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.mono, th.mono { font-family: var(--mono); }
+  td.on  { color: var(--good); font-weight: 700; }
+  td.off { color: var(--ink-3); }
+  td.hi  { background: var(--copper-soft); font-weight: 700; }
+  td.y1  { color: var(--good); font-weight: 700; font-family: var(--mono); }
+  td.y0  { color: var(--ink-2); font-family: var(--mono); }
+  caption { caption-side: bottom; font-size: 12px; color: var(--ink-3); padding: 8px 4px 0; text-align: left; }
+
+  /* schematic figure */
+  figure { margin: 18px 0; }
+  .fig { background: var(--card); border: 1px solid var(--rule-2); border-radius: 12px; padding: 14px; box-shadow: var(--shadow); overflow-x: auto; }
+  .fig svg { display: block; width: 100%; height: auto; min-width: 460px; }
+  figcaption { font-size: 12.5px; color: var(--ink-3); margin-top: 8px; text-align: center; }
+  .stroke { stroke: var(--blue); }
+  .wire   { stroke: var(--ink-2); }
+
+  footer { margin-top: 56px; padding-top: 22px; border-top: 2px solid var(--ink); font-size: 13px; color: var(--ink-3); }
+  footer b { color: var(--ink-2); }
+  .backtop { display: inline-block; margin-top: 12px; font-family: var(--mono); font-size: 12px; color: var(--blue); text-decoration: none; }
+
+  @media (max-width: 560px) {
+    .topnav .chips { display: none; }
+    .step { gap: 10px; }
+  }
+  @media print {
+    body::before, #bar, .topnav { display: none !important; }
+    body { background: #fff; color: #000; }
+    .fig, .answer, .tbl-wrap, .note { box-shadow: none; }
+    section.q { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div id="bar"></div>
+
+<nav class="topnav">
+  <span class="brand">CSE132 <span class="dot">·</span> MIDTERM</span>
+  <div class="chips">
+    <a href="#q1">Q1</a><a href="#q2">Q2</a><a href="#q3">Q3</a><a href="#q4">Q4</a><a href="#q5">Q5</a>
+    <a href="#q6">Q6</a><a href="#q7">Q7</a><a href="#q8">Q8</a><a href="#q9">Q9</a><a href="#q10">Q10</a>
+  </div>
+  <button class="tgl" id="tgl" title="Toggle light / dark" aria-label="Toggle theme">◐</button>
+</nav>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow">Computer Architecture &amp; Organization · Study Edition</span>
+    <h1>Midterm Exam — Fully Solved</h1>
+    <p class="sub">Every question from the paper, worked the way the doctor solves it in class — but organised so you can follow each step on your own.</p>
+    <div class="meta">
+      <div><span class="k">Course</span><b>CSE132</b></div>
+      <div><span class="k">Instructor</span><b>Dr. Ahmed Shalaby</b></div>
+      <div><span class="k">Questions</span><b>10 · fully worked</b></div>
+      <div><span class="k">Topics</span><b>CMOS · Parallelism · Division · ALU · FSM · MUX · Shifters · SLT · Floating-point · Memory</b></div>
+    </div>
+    <div class="note">
+      <b>How to use this.</b> <b>Part A</b> is last year’s <b>real exam paper</b> — the exact figure and wording, scanned as-is. <b>Part B</b> adds the doctor’s own worked examples from his slides, covering the rest of the topics he put on the board. Every question is followed by an organised, step-by-step solution <i>in his method</i> — try it yourself first, then read the solution. The <span style="color:var(--copper);font-weight:600">copper boxes</span> hold the final answer.
+      <div class="ar"><b>القسم A</b> = امتحان السنة اللي فاتت الأصلي (متصوّر زي ما هو). <b>القسم B</b> = أمثلة الدكتور نفسه من سلايداته على باقي مواضيع البورد. كل سؤال تحته حل مرتّب خطوة بخطوة <b>بطريقة الدكتور</b> — جرّب الأول وبعدين اقرا الحل. <b>البوكس النحاسي</b> فيه الإجابة النهائية.</div>
+    </div>
+
+    <div class="solband" style="margin-top:26px"><span class="t">Part A <span class="ar">· امتحان السنة اللي فاتت — زي ما هو</span></span><span class="ln"></span></div>
+  </header>
+
+  <!-- ══════════════════════ Q1 ══════════════════════ -->
+  <section class="q" id="q1">
+    <div class="qhead">
+      <span class="qnum">QUESTION 01</span>
+      <h2>Write the equation of Y</h2>
+      <span class="qtag">CMOS · combinational</span>
+    </div>
+
+    <div class="qcard">
+      <div class="ql">Question 1 — exam paper <span class="ar">· نفس ورقة الدكتور بالظبط</span></div>
+      <a class="qframe" href="/cse132-midterm/q1.jpg" target="_blank" rel="noopener" aria-label="Open Question 1 full size">
+        <img src="/cse132-midterm/q1.jpg" alt="Question 1: write the equation of Y for the CMOS transistor network, and fill the truth table for A, B, C." loading="lazy" />
+      </a>
+    </div>
+
+    <div class="solband"><span class="t">الحل <span class="ar">· Solution</span></span><span class="ln"></span></div>
+
+    <figure>
+      <div class="fig">
+        <svg viewBox="0 0 520 430" role="img" aria-label="CMOS AND-OR-INVERT gate: PMOS A and B in parallel, in series with PMOS C on top; NMOS A and B in series, in parallel with NMOS C on the bottom.">
+          <!-- rails -->
+          <line x1="70" y1="34" x2="420" y2="34" class="wire" stroke-width="2"/>
+          <circle cx="245" cy="34" r="3" class="wire" fill="currentColor" style="color:var(--ink-2)"/>
+          <text x="428" y="39" font-family="var(--mono)" font-size="14" fill="var(--copper)">V<tspan font-size="10" dy="4">DD</tspan></text>
+          <line x1="70" y1="396" x2="420" y2="396" class="wire" stroke-width="2"/>
+          <text x="428" y="401" font-family="var(--mono)" font-size="13" fill="var(--ink-2)">GND</text>
+
+          <!-- ── PMOS pull-up : A ∥ B , then series C ── -->
+          <!-- A -->
+          <line x1="150" y1="34" x2="150" y2="66" class="wire"/>
+          <rect x="120" y="66" width="60" height="34" rx="6" fill="none" class="stroke" stroke-width="1.6"/>
+          <circle cx="112" cy="83" r="4.5" fill="none" class="stroke" stroke-width="1.4"/>
+          <line x1="116" y1="83" x2="120" y2="83" class="stroke"/>
+          <text x="105" y="88" text-anchor="end" font-family="var(--mono)" font-size="14" fill="var(--ink)">A</text>
+          <text x="150" y="87" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--ink-3)">P</text>
+          <!-- B -->
+          <line x1="300" y1="34" x2="300" y2="66" class="wire"/>
+          <rect x="270" y="66" width="60" height="34" rx="6" fill="none" class="stroke" stroke-width="1.6"/>
+          <circle cx="262" cy="83" r="4.5" fill="none" class="stroke" stroke-width="1.4"/>
+          <line x1="266" y1="83" x2="270" y2="83" class="stroke"/>
+          <text x="255" y="88" text-anchor="end" font-family="var(--mono)" font-size="14" fill="var(--ink)">B</text>
+          <text x="300" y="87" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--ink-3)">P</text>
+          <!-- join A,B bottoms to node p1 -->
+          <line x1="150" y1="100" x2="150" y2="126" class="wire"/>
+          <line x1="300" y1="100" x2="300" y2="126" class="wire"/>
+          <line x1="150" y1="126" x2="300" y2="126" class="wire"/>
+          <circle cx="225" cy="126" r="3" fill="currentColor" style="color:var(--ink-2)"/>
+          <!-- C (series) -->
+          <line x1="225" y1="126" x2="225" y2="150" class="wire"/>
+          <rect x="195" y="150" width="60" height="34" rx="6" fill="none" class="stroke" stroke-width="1.6"/>
+          <circle cx="187" cy="167" r="4.5" fill="none" class="stroke" stroke-width="1.4"/>
+          <line x1="191" y1="167" x2="195" y2="167" class="stroke"/>
+          <text x="180" y="172" text-anchor="end" font-family="var(--mono)" font-size="14" fill="var(--ink)">C</text>
+          <text x="225" y="171" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--ink-3)">P</text>
+
+          <!-- ── output node Y ── -->
+          <line x1="225" y1="184" x2="225" y2="215" class="wire"/>
+          <line x1="225" y1="215" x2="470" y2="215" class="wire" stroke-width="2"/>
+          <circle cx="225" cy="215" r="3.5" fill="currentColor" style="color:var(--copper)"/>
+          <text x="478" y="220" font-family="var(--mono)" font-size="16" fill="var(--copper)" font-weight="700">Y</text>
+
+          <!-- ── NMOS pull-down : A · B in series , ∥ C ── -->
+          <!-- left branch : A then B -->
+          <line x1="150" y1="215" x2="150" y2="246" class="wire"/>
+          <rect x="120" y="246" width="60" height="34" rx="6" fill="none" class="wire" stroke-width="1.6"/>
+          <line x1="112" y1="263" x2="120" y2="263" class="wire"/>
+          <text x="105" y="268" text-anchor="end" font-family="var(--mono)" font-size="14" fill="var(--ink)">A</text>
+          <text x="150" y="267" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--ink-3)">N</text>
+          <line x1="150" y1="280" x2="150" y2="306" class="wire"/>
+          <rect x="120" y="306" width="60" height="34" rx="6" fill="none" class="wire" stroke-width="1.6"/>
+          <line x1="112" y1="323" x2="120" y2="323" class="wire"/>
+          <text x="105" y="328" text-anchor="end" font-family="var(--mono)" font-size="14" fill="var(--ink)">B</text>
+          <text x="150" y="327" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--ink-3)">N</text>
+          <line x1="150" y1="340" x2="150" y2="396" class="wire"/>
+          <!-- right branch : C alone (parallel) -->
+          <line x1="225" y1="215" x2="300" y2="215" class="wire"/>
+          <line x1="300" y1="215" x2="300" y2="276" class="wire"/>
+          <rect x="270" y="276" width="60" height="34" rx="6" fill="none" class="wire" stroke-width="1.6"/>
+          <line x1="262" y1="293" x2="270" y2="293" class="wire"/>
+          <text x="255" y="298" text-anchor="end" font-family="var(--mono)" font-size="14" fill="var(--ink)">C</text>
+          <text x="300" y="297" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--ink-3)">N</text>
+          <line x1="300" y1="310" x2="300" y2="396" class="wire"/>
+        </svg>
+      </div>
+      <figcaption><b>Same circuit as the paper, redrawn clearly</b> so the connections are easy to read. Pull-up (top, PMOS “P”): A ∥ B in series with C. Pull-down (bottom, NMOS “N”): A · B in series, in parallel with C. The two networks are always complementary.</figcaption>
+    </figure>
+
+    <div class="sol">
+      <div class="step"><div class="n">1</div><div class="b">
+        <p><b>Recall the one rule.</b> A PMOS transistor conducts when its gate = <span class="m">0</span>; an NMOS conducts when its gate = <span class="m">1</span>. The pull-up network (to <span class="m">V<sub>DD</sub></span>) drives <span class="m">Y = 1</span>; the pull-down network (to GND) drives <span class="m">Y = 0</span>. They are duals — exactly one conducts at a time.</p>
+      </div></div>
+      <div class="step"><div class="n">2</div><div class="b">
+        <p><b>Read the pull-down — it is the easy one.</b> The NMOS network connects Y to GND (making <span class="m">Y = 0</span>) when: <span class="m">A</span> <b>and</b> <span class="m">B</span> are both on (series path) <b>or</b> <span class="m">C</span> is on (the parallel branch).</p>
+        <div class="eq">pull-down conducts &nbsp;⟺&nbsp; (A · B) + C &nbsp;=&nbsp; <b>1</b> &nbsp;→&nbsp; Y = 0</div>
+      </div></div>
+      <div class="step"><div class="n">3</div><div class="b">
+        <p><b>Invert to get Y.</b> Y is high whenever the pull-down is <i>off</i>, so Y is the complement of that expression:</p>
+        <div class="eq">Y = <b>(A · B + C)′</b> &nbsp;=&nbsp; <span class="ovl">A · B + C</span></div>
+        <p>This is an <b>AND-OR-INVERT (AOI)</b> gate — AND the pair <span class="m">A·B</span>, OR in <span class="m">C</span>, then invert.</p>
+      </div></div>
+      <div class="step"><div class="n">4</div><div class="b">
+        <p><b>Cross-check with the pull-up.</b> By De Morgan, <span class="m">(A·B + C)′ = (<span class="ovl">A·B</span>)·<span class="ovl">C</span> = (<span class="ovl">A</span> + <span class="ovl">B</span>)·<span class="ovl">C</span></span>. The pull-up conducts when <span class="m">(A = 0 or B = 0)</span> and <span class="m">C = 0</span> — exactly A ∥ B in series with C. ✓ The schematic and the equation agree.</p>
+      </div></div>
+    </div>
+
+    <div class="answer">
+      <span class="lbl">Final answer · the equation of Y</span>
+      <div class="val">Y = (A · B + C)′ &nbsp; <span style="color:var(--ink-3);font-family:var(--mono);font-size:15px">— an AND-OR-INVERT gate</span></div>
+    </div>
+
+    <h3>Completed truth table</h3>
+    <p>Transistor state: <span class="m">P<sub>x</sub></span> = ON when <span class="m">x = 0</span> · <span class="m">N<sub>x</sub></span> = ON when <span class="m">x = 1</span>. Then <span class="m">Y = (A·B + C)′</span>.</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="mono">A</th><th class="mono">B</th><th class="mono">C</th>
+            <th class="mono">P<sub>A</sub></th><th class="mono">P<sub>B</sub></th><th class="mono">P<sub>C</sub></th>
+            <th class="mono">N<sub>A</sub></th><th class="mono">N<sub>B</sub></th><th class="mono">N<sub>C</sub></th>
+            <th class="mono">Y</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">0</td><td class="mono">0</td><td class="mono">0</td><td class="on">ON</td><td class="on">ON</td><td class="on">ON</td><td class="off">off</td><td class="off">off</td><td class="off">off</td><td class="y1">1</td></tr>
+          <tr><td class="mono">0</td><td class="mono">0</td><td class="mono">1</td><td class="on">ON</td><td class="on">ON</td><td class="off">off</td><td class="off">off</td><td class="off">off</td><td class="on">ON</td><td class="y0">0</td></tr>
+          <tr><td class="mono">0</td><td class="mono">1</td><td class="mono">0</td><td class="on">ON</td><td class="off">off</td><td class="on">ON</td><td class="off">off</td><td class="on">ON</td><td class="off">off</td><td class="y1">1</td></tr>
+          <tr><td class="mono">0</td><td class="mono">1</td><td class="mono">1</td><td class="on">ON</td><td class="off">off</td><td class="off">off</td><td class="off">off</td><td class="on">ON</td><td class="on">ON</td><td class="y0">0</td></tr>
+          <tr><td class="mono">1</td><td class="mono">0</td><td class="mono">0</td><td class="off">off</td><td class="on">ON</td><td class="on">ON</td><td class="on">ON</td><td class="off">off</td><td class="off">off</td><td class="y1">1</td></tr>
+          <tr><td class="mono">1</td><td class="mono">0</td><td class="mono">1</td><td class="off">off</td><td class="on">ON</td><td class="off">off</td><td class="on">ON</td><td class="off">off</td><td class="on">ON</td><td class="y0">0</td></tr>
+          <tr><td class="mono">1</td><td class="mono">1</td><td class="mono">0</td><td class="off">off</td><td class="off">off</td><td class="on">ON</td><td class="on">ON</td><td class="on">ON</td><td class="off">off</td><td class="y0">0</td></tr>
+          <tr><td class="mono">1</td><td class="mono">1</td><td class="mono">1</td><td class="off">off</td><td class="off">off</td><td class="off">off</td><td class="on">ON</td><td class="on">ON</td><td class="on">ON</td><td class="y0">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="idea">
+      <b>الفكرة.</b> شبكة الـ NMOS بتوصّل الخرج بالأرض (0)، والـ PMOS بتوصّله بالـ V<sub>DD</sub> (1)، وهما دايمًا عكس بعض. فأسهل حاجة تقرأ إمتى الخرج = 0 من شبكة الـ NMOS: لما (A و B شغّالين) أو (C شغّال) → يبقى Y = 0. اعكسها تطلع المعادلة على طول: Y = (A·B + C)′.
+    </div>
+    <a class="backtop" href="#q1">↑ back to top of Q1</a>
+  </section>
+
+  <!-- ══════════════════════ Q2 ══════════════════════ -->
+  <section class="q" id="q2">
+    <div class="qhead">
+      <span class="qnum">QUESTION 02</span>
+      <h2>Parallelism — the coffee shop</h2>
+      <span class="qtag">performance · pipelining</span>
+    </div>
+
+    <div class="qcard">
+      <div class="ql">Question 2 — exam paper <span class="ar">· نفس ورقة الدكتور بالظبط</span></div>
+      <a class="qframe" href="/cse132-midterm/q2.jpg" target="_blank" rel="noopener" aria-label="Open Question 2 full size">
+        <img src="/cse132-midterm/q2.jpg" alt="Question 2: a coffee shop with a 5-minute preparation stage and a 10-minute coffee machine; find latency and throughput with spatial, temporal, and both parallelism." loading="lazy" />
+      </a>
+    </div>
+
+    <div class="solband"><span class="t">الحل <span class="ar">· Solution</span></span><span class="ln"></span></div>
+
+    <h3>First, two definitions to keep straight</h3>
+    <div class="step"><div class="n">L</div><div class="b"><p><b>Latency</b> — the time for <i>one</i> cup to travel start → finish.</p></div></div>
+    <div class="step"><div class="n">T</div><div class="b"><p><b>Throughput</b> — how many cups finish <i>per unit time</i>. Latency is about one token; throughput is about the flow.</p></div></div>
+
+    <h3>(a) Latency of one cup</h3>
+    <p>One cup must pass through both stages in order: prepare (5), then the machine (10).</p>
+    <div class="eq">Latency = 5 + 10 = <b>15 min</b> per cup</div>
+    <p>With no parallelism you also start the next cup only after this one is done, so the baseline throughput is</p>
+    <div class="eq">1 cup / 15 min = 60 / 15 = <b>4 cups / hour</b></div>
+    <div class="answer small"><span class="lbl">(a) Latency</span><div class="val">15 minutes per cup &nbsp;(baseline throughput 4 cups/hr)</div></div>
+
+    <h3>(b) Spatial parallelism — replicate the hardware</h3>
+    <p><b>Spatial</b> = put down <i>copies</i> of the whole station side by side; they work at the same time. With <span class="m">N</span> full stations, <span class="m">N</span> cups finish every 15 minutes. Taking <span class="m">N = 2</span> (two preppers + two machines):</p>
+    <div class="eq">throughput = 2 cups / 15 min = <b>8 cups / hour</b> &nbsp;&nbsp;(general: N / 15 min)</div>
+    <p>Latency of a single cup is unchanged — still 15 min. You bought <i>quantity</i>, not <i>speed</i>.</p>
+    <div class="answer small"><span class="lbl">(b) Spatial (×2)</span><div class="val">8 cups / hour</div></div>
+
+    <h3>(c) Temporal parallelism — pipelining</h3>
+    <p><b>Temporal</b> = keep one set of hardware but <i>overlap</i> the stages, like an assembly line: while cup #1 is inside the machine, start preparing cup #2. In steady state a cup comes out every <b>bottleneck stage</b> — the slowest stage — which is the machine at 10 min.</p>
+    <div class="eq">steady-state throughput = 1 cup / max(5, 10) min = 1 / 10 min = <b>6 cups / hour</b></div>
+    <p>The <i>first</i> cup still takes the full 15 min (latency doesn’t improve); after that one exits every 10 min.</p>
+    <div class="answer small"><span class="lbl">(c) Temporal (pipeline)</span><div class="val">6 cups / hour &nbsp;(bottleneck = 10 min stage)</div></div>
+
+    <h3>(d) Both — pipeline <i>and</i> replicate</h3>
+    <p>Run two pipelined lines at once. Each emits one cup per 10 min, so together:</p>
+    <div class="eq">throughput = 2 cups / 10 min = 1 cup / 5 min = <b>12 cups / hour</b> &nbsp;&nbsp;(general: N / 10 min)</div>
+    <div class="answer small"><span class="lbl">(d) Both (×2 pipeline)</span><div class="val">12 cups / hour</div></div>
+
+    <h3>All four at a glance</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Technique</th><th>Latency (1 cup)</th><th>Throughput</th></tr></thead>
+        <tbody>
+          <tr><td>None (sequential)</td><td class="mono">15 min</td><td class="mono">4 / hr</td></tr>
+          <tr><td>Spatial &nbsp;(×2 stations)</td><td class="mono">15 min</td><td class="mono hi">8 / hr</td></tr>
+          <tr><td>Temporal (pipeline)</td><td class="mono">15 min first, 10 min steady</td><td class="mono hi">6 / hr</td></tr>
+          <tr><td>Both &nbsp;(×2 pipelines)</td><td class="mono">15 min</td><td class="mono hi">12 / hr</td></tr>
+        </tbody>
+      </table>
+      <caption>Assumption: “spatial / both” duplicate the hardware ×2 (the general formulas in N are shown above). If the paper fixes a different number of copies, plug it into N.</caption>
+    </div>
+    <div class="idea">
+      <b>الفكرة.</b> الـ <b>latency</b> بتاعت الكوب الواحد ثابتة = 15 دقيقة في كل الحالات. اللي بيتحسّن هو الـ <b>throughput</b>: <b>spatial</b> = نكرّر الأجهزة (كمية أكبر بنفس السرعة)، و<b>temporal</b> = خط إنتاج بيتحدّد بأبطأ مرحلة (10 دقايق)، و<b>both</b> = الاتنين مع بعض.
+    </div>
+    <a class="backtop" href="#q2">↑ back to top of Q2</a>
+  </section>
+
+  <!-- ══════════════════════ Q3 ══════════════════════ -->
+  <section class="q" id="q3">
+    <div class="qhead">
+      <span class="qnum">QUESTION 03</span>
+      <h2>Compute 14 / 7 and fill the table</h2>
+      <span class="qtag">arithmetic · division</span>
+    </div>
+
+    <div class="qcard">
+      <div class="ql">Question 3 — exam paper <span class="ar">· نفس ورقة الدكتور بالظبط</span></div>
+      <a class="qframe" href="/cse132-midterm/q3.jpg" target="_blank" rel="noopener" aria-label="Open Question 3 full size">
+        <img src="/cse132-midterm/q3.jpg" alt="Question 3: compute 14 divided by 7 and fill the table with columns iterations, R, D, Q, R prime." loading="lazy" />
+      </a>
+    </div>
+
+    <div class="solband"><span class="t">الحل <span class="ar">· Solution</span></span><span class="ln"></span></div>
+
+    <h3>Set-up</h3>
+    <p>Work in 4 bits. Dividend <span class="m">A = 14 = 1110₂</span>, divisor <span class="m">B = 7 = 0111₂</span>. Build the quotient <span class="m">Q</span> one bit per iteration, MSB→LSB (4 iterations), tracking the running remainder <span class="m">R′</span> (start <span class="m">R′ = 0</span>).</p>
+    <h3>The doctor's algorithm — the “4×4 Divider” slide, exactly</h3>
+    <div class="eq">R′ = 0<br>for i = N−1 down to 0:<br>&nbsp;&nbsp;&nbsp;R = { R′ &lt;&lt; 1 , A<sub>i</sub> }<br>&nbsp;&nbsp;&nbsp;<b>D = R − B</b><br>&nbsp;&nbsp;&nbsp;if D &lt; 0 → Q<sub>i</sub> = 0 , R′ = R<br>&nbsp;&nbsp;&nbsp;else&nbsp;&nbsp;&nbsp; → Q<sub>i</sub> = 1 , R′ = D</div>
+    <div class="step"><div class="n">1</div><div class="b"><p><b>Shift.</b> Shift the running remainder left and pull in the next dividend bit: <span class="m">R = { R′ &lt;&lt; 1 , A<sub>i</sub> }</span>.</p></div></div>
+    <div class="step"><div class="n">2</div><div class="b"><p><b>Subtract the divisor.</b> <span class="m">D = R − B</span> &nbsp;(with <span class="m">B = 7</span>). Note the doctor’s convention: the <b>D</b> column is the <i>difference</i> <span class="m">R − B</span> — <b>not</b> the divisor.</p></div></div>
+    <div class="step"><div class="n">3</div><div class="b"><p><b>Decide.</b> If <span class="m">D &lt; 0</span> the divisor didn’t fit → <span class="m">Q<sub>i</sub> = 0</span> and restore <span class="m">R′ = R</span>. If <span class="m">D ≥ 0</span> it fit → <span class="m">Q<sub>i</sub> = 1</span> and <span class="m">R′ = D</span>.</p></div></div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th class="mono">i</th><th class="mono">A<sub>i</sub></th><th class="mono">R = {R′≪1, A<sub>i</sub>}</th>
+          <th class="mono">D = R − B</th><th class="mono">Q<sub>i</sub></th><th class="mono">R′</th>
+        </tr></thead>
+        <tbody>
+          <tr><td class="mono">3</td><td class="mono">1</td><td class="mono">0001 (1)</td><td class="mono">1 − 7 = −6 &lt; 0</td><td class="mono y0">0</td><td class="mono">0001 (1)</td></tr>
+          <tr><td class="mono">2</td><td class="mono">1</td><td class="mono">0011 (3)</td><td class="mono">3 − 7 = −4 &lt; 0</td><td class="mono y0">0</td><td class="mono">0011 (3)</td></tr>
+          <tr><td class="mono">1</td><td class="mono">1</td><td class="mono">0111 (7)</td><td class="mono hi">7 − 7 = 0 ≥ 0</td><td class="mono y1">1</td><td class="mono">0000 (0)</td></tr>
+          <tr><td class="mono">0</td><td class="mono">0</td><td class="mono">0000 (0)</td><td class="mono">0 − 7 = −7 &lt; 0</td><td class="mono y0">0</td><td class="mono">0000 (0)</td></tr>
+        </tbody>
+      </table>
+      <caption>B = 0111₂ = 7 (divisor, given). D is the trial difference R − B; R′ is the remainder carried into the next row (starts at 0). Quotient bits read top→bottom: Q₃Q₂Q₁Q₀.</caption>
+    </div>
+
+    <p>Quotient bits <span class="m">Q₃Q₂Q₁Q₀ = 0010₂</span>; final remainder <span class="m">R′ = 0000₂</span>.</p>
+    <div class="eq">Q = 0010₂ = <b>2</b> &nbsp;·&nbsp; remainder = <b>0</b> &nbsp;·&nbsp; check: 2 × 7 + 0 = 14 ✓</div>
+    <div class="answer"><span class="lbl">Final answer · 14 / 7</span><div class="val">Quotient = 2 &nbsp;·&nbsp; Remainder = 0</div></div>
+
+    <div class="idea">
+      <b>الفكرة (نفس طريقة الدكتور في السلايد).</b> كل خطوة: نزحزح الباقي شمال وندخّل بتّ جديد من المقسوم، وبعدين نطرح المقسوم‌عليه <b>D = R − B</b>. لو <b>D سالب</b> يبقى الـ 7 مدخلش → البتّ = 0 ونرجّع الباقي زي ما هو (R′ = R)؛ لو <b>D موجب أو صفر</b> يبقى دخل → البتّ = 1 والباقي الجديد = D. الناتج Q = 0010 = 2 والباقي 0. أهم نقطة: عمود <b>D هو ناتج الطرح (R − B)</b>، مش المقسوم‌عليه.
+    </div>
+    <a class="backtop" href="#q3">↑ back to top of Q3</a>
+  </section>
+
+  <!-- ══════════════════════ Q4 ══════════════════════ -->
+  <section class="q" id="q4">
+    <div class="qhead">
+      <span class="qnum">QUESTION 04</span>
+      <h2>Fill the ALU function table</h2>
+      <span class="qtag">datapath · ALU</span>
+    </div>
+
+    <div class="qcard">
+      <div class="ql">Question 4 — exam paper <span class="ar">· نفس ورقة الدكتور بالظبط</span></div>
+      <a class="qframe" href="/cse132-midterm/q4.jpg" target="_blank" rel="noopener" aria-label="Open Question 4 full size">
+        <img src="/cse132-midterm/q4.jpg" alt="Question 4: fill the table with the corresponding functionality in the ALU for each value of F2:0 from 000 to 111." loading="lazy" />
+      </a>
+    </div>
+
+    <div class="solband"><span class="t">الحل <span class="ar">· Solution</span></span><span class="ln"></span></div>
+
+    <p>In the course ALU the control splits in two: <span class="m">F<sub>2</sub></span> chooses <span class="m">B</span> (0) or <span class="m">B̄</span> (1) and sets the adder’s carry-in for subtraction, while <span class="m">F<sub>1:0</sub></span> picks which result the output multiplexer passes — <span class="m">00</span> → AND, <span class="m">01</span> → OR, <span class="m">10</span> → the adder, <span class="m">11</span> → SLT.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th class="mono">F<sub>2:0</sub></th><th>Function</th><th>How the ALU does it</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">000</td><td class="mono">A AND B</td><td>output mux selects the AND unit</td></tr>
+          <tr><td class="mono">001</td><td class="mono">A OR B</td><td>output mux selects the OR unit</td></tr>
+          <tr><td class="mono">010</td><td class="mono">A + B</td><td>adder, carry-in = 0</td></tr>
+          <tr><td class="mono off">011</td><td class="off">not used</td><td class="off">—</td></tr>
+          <tr><td class="mono">100</td><td class="mono">A AND B̄</td><td>F<sub>2</sub> inverts B, then AND</td></tr>
+          <tr><td class="mono">101</td><td class="mono">A OR B̄</td><td>F<sub>2</sub> inverts B, then OR</td></tr>
+          <tr><td class="mono hi">110</td><td class="mono hi">A − B</td><td>adder computes A + B̄ + 1</td></tr>
+          <tr><td class="mono hi">111</td><td class="mono hi">SLT</td><td>Set Less Than: 1 if A &lt; B, else 0</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="step"><div class="n">↳</div><div class="b">
+      <p><b>Why subtraction reuses the adder.</b> Setting <span class="m">F<sub>2</sub> = 1</span> feeds <span class="m">B̄</span> into the adder and forces carry-in = 1, so it computes <span class="m">A + B̄ + 1 = A − B</span> in two’s complement. No separate subtractor is needed.</p>
+      <p><b>Why SLT “just works”.</b> SLT subtracts (<span class="m">A − B</span>) and looks at the sign bit of the result: if the result is negative then <span class="m">A &lt; B</span>, so the ALU outputs 1; otherwise 0.</p>
+    </div></div>
+
+    <div class="idea">
+      <b>الفكرة.</b> الـ <b>F<sub>2</sub></b> هو مفتاح "اقلب B واطرح"، والـ <b>F<sub>1:0</sub></b> بيختار المخرج (AND / OR / الجامع / SLT). عشان كده الطرح بيستعمل نفس الجامع بتاع الجمع (A + B̄ + 1)، والـ SLT بيبص على إشارة ناتج الطرح.
+    </div>
+    <a class="backtop" href="#q4">↑ back to top of Q4</a>
+  </section>
+
+  <!-- ══════════════════════ Q5 ══════════════════════ -->
+  <section class="q" id="q5">
+    <div class="qhead">
+      <span class="qnum">QUESTION 05</span>
+      <h2>Garage-gate controller (FSM)</h2>
+      <span class="qtag">sequential · state machine</span>
+    </div>
+
+    <div class="qcard">
+      <div class="ql">Question 5 — exam paper <span class="ar">· نفس ورقة الدكتور بالظبط</span></div>
+      <a class="qframe" href="/cse132-midterm/q5.jpg" target="_blank" rel="noopener" aria-label="Open Question 5 full size">
+        <img src="/cse132-midterm/q5.jpg" alt="Question 5: design a garage-gate controller FSM with a car-detection sensor and a card reader; valid card opens then auto-closes, invalid card stays closed and shows Access Denied." loading="lazy" />
+      </a>
+    </div>
+
+    <div class="solband"><span class="t">الحل <span class="ar">· Solution</span></span><span class="ln"></span></div>
+
+    <h3>Inputs &amp; outputs</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Signal</th><th>Type</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">car</td><td>input</td><td>car-detection sensor — 1 while a car is at the gate</td></tr>
+          <tr><td class="mono">cp</td><td>input</td><td>a card was presented to the reader</td></tr>
+          <tr><td class="mono">valid</td><td>input</td><td>the presented card is valid</td></tr>
+          <tr><td class="mono">open</td><td>output</td><td>1 opens the gate</td></tr>
+          <tr><td class="mono">deny</td><td>output</td><td>1 shows “Access Denied”</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>We use a <b>Moore</b> machine — the outputs depend only on the state, which is the safe choice for a gate (outputs are steady, no glitches while inputs change).</p>
+
+    <h3>The four states</h3>
+    <figure>
+      <div class="fig">
+        <svg viewBox="0 0 660 380" role="img" aria-label="Moore FSM state diagram with four states: IDLE, CHECK, OPEN, DENIED.">
+          <defs>
+            <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-2)"/>
+            </marker>
+          </defs>
+          <!-- start arrow -->
+          <line x1="20" y1="200" x2="58" y2="200" class="wire" stroke-width="1.6" marker-end="url(#ah)"/>
+          <!-- S0 IDLE -->
+          <circle cx="108" cy="200" r="48" fill="var(--card)" class="stroke" stroke-width="2"/>
+          <text x="108" y="193" text-anchor="middle" font-family="var(--mono)" font-size="14" font-weight="700" fill="var(--ink)">S0 IDLE</text>
+          <text x="108" y="212" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--ink-3)">open0 deny0</text>
+          <!-- S1 CHECK -->
+          <circle cx="320" cy="200" r="48" fill="var(--card)" class="stroke" stroke-width="2"/>
+          <text x="320" y="193" text-anchor="middle" font-family="var(--mono)" font-size="14" font-weight="700" fill="var(--ink)">S1 CHECK</text>
+          <text x="320" y="212" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--ink-3)">open0 deny0</text>
+          <!-- S2 OPEN -->
+          <circle cx="560" cy="96" r="48" fill="var(--copper-soft)" stroke="var(--copper)" stroke-width="2"/>
+          <text x="560" y="89" text-anchor="middle" font-family="var(--mono)" font-size="14" font-weight="700" fill="var(--ink)">S2 OPEN</text>
+          <text x="560" y="108" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--copper)">open1 deny0</text>
+          <!-- S3 DENIED -->
+          <circle cx="560" cy="304" r="48" fill="var(--card)" stroke="var(--ink-2)" stroke-width="2"/>
+          <text x="560" y="297" text-anchor="middle" font-family="var(--mono)" font-size="13.5" font-weight="700" fill="var(--ink)">S3 DENIED</text>
+          <text x="560" y="316" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--ink-3)">open0 deny1</text>
+
+          <!-- S0 -> S1 : car=1 -->
+          <line x1="156" y1="200" x2="272" y2="200" class="wire" stroke-width="1.6" marker-end="url(#ah)"/>
+          <text x="214" y="191" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--blue)">car=1</text>
+          <!-- S0 self loop : car=0 -->
+          <path d="M84,158 C70,120 146,120 132,158" fill="none" class="wire" stroke-width="1.5" marker-end="url(#ah)"/>
+          <text x="108" y="120" text-anchor="middle" font-family="var(--mono)" font-size="11.5" fill="var(--ink-3)">car=0</text>
+          <!-- S1 -> S2 : cp·valid -->
+          <line x1="358" y1="170" x2="520" y2="118" class="wire" stroke-width="1.6" marker-end="url(#ah)"/>
+          <text x="432" y="132" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--blue)">cp · valid</text>
+          <!-- S1 -> S3 : cp·valid' -->
+          <line x1="358" y1="230" x2="520" y2="282" class="wire" stroke-width="1.6" marker-end="url(#ah)"/>
+          <text x="432" y="278" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--blue)">cp · valid′</text>
+          <!-- S1 self loop : else -->
+          <path d="M296,158 C282,120 358,120 344,158" fill="none" class="wire" stroke-width="1.5" marker-end="url(#ah)"/>
+          <text x="320" y="120" text-anchor="middle" font-family="var(--mono)" font-size="11.5" fill="var(--ink-3)">else (waiting)</text>
+          <!-- S2 -> S0 : car=0 (curve back over the top) -->
+          <path d="M528,64 C360,-8 150,40 120,150" fill="none" class="wire" stroke-width="1.5" marker-end="url(#ah)"/>
+          <text x="300" y="30" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--blue)">car=0 → close</text>
+          <!-- S2 self loop : car=1 -->
+          <path d="M604,74 C640,60 640,132 604,118" fill="none" class="wire" stroke-width="1.5" marker-end="url(#ah)"/>
+          <text x="636" y="98" text-anchor="start" font-family="var(--mono)" font-size="11.5" fill="var(--ink-3)">car=1</text>
+          <!-- S3 -> S0 : car=0 (curve back under the bottom) -->
+          <path d="M528,336 C360,404 150,360 120,250" fill="none" class="wire" stroke-width="1.5" marker-end="url(#ah)"/>
+          <text x="300" y="386" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--blue)">car=0 → reset</text>
+          <!-- S3 self loop : car=1 -->
+          <path d="M604,282 C640,268 640,340 604,326" fill="none" class="wire" stroke-width="1.5" marker-end="url(#ah)"/>
+          <text x="636" y="306" text-anchor="start" font-family="var(--mono)" font-size="11.5" fill="var(--ink-3)">car=1</text>
+        </svg>
+      </div>
+      <figcaption>Moore FSM — outputs (open / deny) are written inside each state. OPEN is the only state that raises <span class="m">open</span>; DENIED is the only one that raises <span class="m">deny</span>.</figcaption>
+    </figure>
+
+    <h3>State-transition table</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Current state</th><th class="mono">car</th><th class="mono">cp</th><th class="mono">valid</th><th>Next state</th><th class="mono">open</th><th class="mono">deny</th>
+        </tr></thead>
+        <tbody>
+          <tr><td class="mono">S0 IDLE</td><td class="mono">0</td><td class="mono">–</td><td class="mono">–</td><td class="mono">S0 IDLE</td><td class="mono">0</td><td class="mono">0</td></tr>
+          <tr><td class="mono">S0 IDLE</td><td class="mono">1</td><td class="mono">–</td><td class="mono">–</td><td class="mono">S1 CHECK</td><td class="mono">0</td><td class="mono">0</td></tr>
+          <tr><td class="mono">S1 CHECK</td><td class="mono">–</td><td class="mono">0</td><td class="mono">–</td><td class="mono">S1 CHECK</td><td class="mono">0</td><td class="mono">0</td></tr>
+          <tr><td class="mono">S1 CHECK</td><td class="mono">–</td><td class="mono">1</td><td class="mono">1</td><td class="mono hi">S2 OPEN</td><td class="mono">0</td><td class="mono">0</td></tr>
+          <tr><td class="mono">S1 CHECK</td><td class="mono">–</td><td class="mono">1</td><td class="mono">0</td><td class="mono hi">S3 DENIED</td><td class="mono">0</td><td class="mono">0</td></tr>
+          <tr><td class="mono">S2 OPEN</td><td class="mono">1</td><td class="mono">–</td><td class="mono">–</td><td class="mono">S2 OPEN</td><td class="mono y1">1</td><td class="mono">0</td></tr>
+          <tr><td class="mono">S2 OPEN</td><td class="mono">0</td><td class="mono">–</td><td class="mono">–</td><td class="mono">S0 IDLE</td><td class="mono y1">1</td><td class="mono">0</td></tr>
+          <tr><td class="mono">S3 DENIED</td><td class="mono">1</td><td class="mono">–</td><td class="mono">–</td><td class="mono">S3 DENIED</td><td class="mono">0</td><td class="mono y1">1</td></tr>
+          <tr><td class="mono">S3 DENIED</td><td class="mono">0</td><td class="mono">–</td><td class="mono">–</td><td class="mono">S0 IDLE</td><td class="mono">0</td><td class="mono y1">1</td></tr>
+        </tbody>
+      </table>
+      <caption>“–” = don’t-care. open / deny are Moore outputs of the <i>current</i> state.</caption>
+    </div>
+
+    <div class="answer">
+      <span class="lbl">Design summary</span>
+      <div class="val" style="font-size:17px;line-height:1.5">
+        IDLE → (car) CHECK → valid card ⇒ OPEN, then auto-close when the car passes; invalid card ⇒ DENIED with “Access Denied”, then reset when the car leaves.
+      </div>
+    </div>
+
+    <div class="idea">
+      <b>الفكرة.</b> الباب يفضل مقفول لحد ما تيجي عربية <b>و</b> كارت صح → يفتح، وأول ما العربية تعدّي (السنسور مبقاش شايفها) يقفل لوحده. الكارت الغلط = رسالة "Access Denied" من غير فتح. اخترنا <b>Moore</b> لأن مخرجاته ثابتة على حسب الحالة — أأمن لباب. الـ <b>Mealy</b> ممكن يقلّل عدد الحالات (المخرج على الأسهم) بس بيبقى أعرضة للـ glitches.
+    </div>
+    <a class="backtop" href="#q5">↑ back to top of Q5</a>
+  </section>
+
+  <!-- ══════════════════════ PART B ══════════════════════ -->
+  <section class="q" id="partb">
+    <div class="solband" style="margin-top:8px"><span class="t">Part B <span class="ar">· باقي مواضيع البورد — من سلايدات الدكتور</span></span><span class="ln"></span></div>
+    <p style="color:var(--ink-2)">These are the doctor’s own worked examples from his Chapter-5 slides (Harris &amp; Harris DDCA) — the remaining topics he put on the board: multiplexer, shifters &amp; multiply/divide, SLT on the 32-bit ALU, IEEE-754 floating point, and memory. Same method, same numbers he uses in lecture.</p>
+    <div class="idea"><b>ليه القسم ده؟</b> البورد كان فيه مواضيع أكتر من الـ 5 أسئلة. دي أمثلة الدكتور نفسه من سلايداته، محلولة بطريقته بالظبط، عشان تغطّي المنهج كله.</div>
+  </section>
+
+  <!-- ── Q6 : Multiplexer ── -->
+  <section class="q" id="q6">
+    <div class="qhead"><span class="qnum">QUESTION 06</span><h2>2:1 Multiplexer</h2><span class="qtag">combinational · MUX</span></div>
+    <div class="prompt"><span class="pl">From the doctor’s slide</span>
+      Design a <b>2:1 multiplexer</b> with data inputs <span class="m">D0, D1</span> and select line <span class="m">S</span>. Give the truth table and the Boolean equation of the output <span class="m">Y</span>.</div>
+    <div class="solband"><span class="t">الحل <span class="ar">· Solution</span></span><span class="ln"></span></div>
+    <p>A multiplexer forwards <i>one</i> of its inputs to the output, chosen by the select line: <span class="m">S = 0</span> passes <span class="m">D0</span>, and <span class="m">S = 1</span> passes <span class="m">D1</span>.</p>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th class="mono">S</th><th class="mono">D1</th><th class="mono">D0</th><th class="mono">Y</th><th>why</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">0</td><td class="mono">0</td><td class="mono">0</td><td class="mono y0">0</td><td>S=0 → Y=D0=0</td></tr>
+        <tr><td class="mono">0</td><td class="mono">0</td><td class="mono">1</td><td class="mono y1">1</td><td>S=0 → Y=D0=1</td></tr>
+        <tr><td class="mono">0</td><td class="mono">1</td><td class="mono">0</td><td class="mono y0">0</td><td>S=0 → Y=D0=0</td></tr>
+        <tr><td class="mono">0</td><td class="mono">1</td><td class="mono">1</td><td class="mono y1">1</td><td>S=0 → Y=D0=1</td></tr>
+        <tr><td class="mono">1</td><td class="mono">0</td><td class="mono">0</td><td class="mono y0">0</td><td>S=1 → Y=D1=0</td></tr>
+        <tr><td class="mono">1</td><td class="mono">0</td><td class="mono">1</td><td class="mono y0">0</td><td>S=1 → Y=D1=0</td></tr>
+        <tr><td class="mono">1</td><td class="mono">1</td><td class="mono">0</td><td class="mono y1">1</td><td>S=1 → Y=D1=1</td></tr>
+        <tr><td class="mono">1</td><td class="mono">1</td><td class="mono">1</td><td class="mono y1">1</td><td>S=1 → Y=D1=1</td></tr>
+      </tbody>
+    </table></div>
+    <p>Collapsing the table: when <span class="m">S = 0</span> the output equals <span class="m">D0</span>; when <span class="m">S = 1</span> it equals <span class="m">D1</span>. So</p>
+    <div class="answer"><span class="lbl">Final answer · 2:1 MUX</span><div class="val">Y = S̄ · D0 + S · D1</div></div>
+    <div class="idea"><b>الفكرة.</b> الـ MUX زي مفتاح: الـ <b>S</b> بيختار مين يعدّي للخرج — <b>S=0</b> يعدّي D0، و<b>S=1</b> يعدّي D1. المعادلة Y = S̄·D0 + S·D1. بيتبني من عاكس + بوابتين AND + بوابة OR.</div>
+    <a class="backtop" href="#q6">↑ back to top of Q6</a>
+  </section>
+
+  <!-- ── Q7 : Shifters, multiply/divide by powers of two ── -->
+  <section class="q" id="q7">
+    <div class="qhead"><span class="qnum">QUESTION 07</span><h2>Shifters — and multiply / divide by 2<sup>N</sup></h2><span class="qtag">arithmetic · shifters</span></div>
+    <div class="prompt"><span class="pl">From the doctor’s slides</span>
+      Evaluate the following shifts of the 5-bit value <span class="m">11001</span>, then show how a shift multiplies or divides by a power of two.</div>
+    <div class="solband"><span class="t">الحل <span class="ar">· Solution</span></span><span class="ln"></span></div>
+    <p><b>Shift types.</b> A <i>logical</i> shift fills the empty places with 0. An <i>arithmetic</i> right shift fills them with the old sign bit (msb) so the sign is kept. A <i>rotate</i> wraps bits around.</p>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Operation on <span class="mono">11001</span></th><th class="mono">Result</th><th>fills with</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">11001 &gt;&gt; 2 &nbsp;(logical right)</td><td class="mono">00110</td><td>0</td></tr>
+        <tr><td class="mono">11001 &lt;&lt; 2 &nbsp;(logical left)</td><td class="mono">00100</td><td>0</td></tr>
+        <tr><td class="mono">11001 &gt;&gt;&gt; 2 (arithmetic right)</td><td class="mono">11110</td><td>msb = 1</td></tr>
+        <tr><td class="mono">11001 ROR 2 (rotate right)</td><td class="mono">01110</td><td>wrap</td></tr>
+        <tr><td class="mono">11001 ROL 2 (rotate left)</td><td class="mono">00111</td><td>wrap</td></tr>
+      </tbody>
+    </table></div>
+    <h3>Shifting = multiply / divide by a power of two</h3>
+    <p>Left shift by <span class="m">N</span> multiplies by <span class="m">2<sup>N</sup></span>; arithmetic right shift by <span class="m">N</span> divides by <span class="m">2<sup>N</sup></span> (5-bit two’s complement):</p>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Rule</th><th class="mono">Example</th><th>meaning</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">A &lt;&lt; N = A × 2<sup>N</sup></td><td class="mono">00001 &lt;&lt; 2 = 00100</td><td>1 × 4 = 4</td></tr>
+        <tr><td class="mono">A &lt;&lt; N = A × 2<sup>N</sup></td><td class="mono">11101 &lt;&lt; 2 = 10100</td><td>−3 × 4 = −12</td></tr>
+        <tr><td class="mono">A &gt;&gt;&gt; N = A ÷ 2<sup>N</sup></td><td class="mono">01000 &gt;&gt;&gt; 2 = 00010</td><td>8 ÷ 4 = 2</td></tr>
+        <tr><td class="mono">A &gt;&gt;&gt; N = A ÷ 2<sup>N</sup></td><td class="mono">10000 &gt;&gt;&gt; 2 = 11100</td><td>−16 ÷ 4 = −4</td></tr>
+      </tbody>
+    </table></div>
+    <div class="answer small"><span class="lbl">Key result</span><div class="val">Left-shift ×2<sup>N</sup> · arithmetic right-shift ÷2<sup>N</sup> — no multiplier/divider needed for powers of two.</div></div>
+    <div class="idea"><b>الفكرة.</b> الإزاحة شمال بـ N = ضرب في 2<sup>N</sup>، والإزاحة يمين الحسابية بـ N = قسمة على 2<sup>N</sup> (وبتحافظ على الإشارة لأنها بتملا بالـ msb القديم). ده أرخص بكتير من دائرة ضرب/قسمة كاملة لما يكون العدد قوة للـ 2.</div>
+    <a class="backtop" href="#q7">↑ back to top of Q7</a>
+  </section>
+
+  <!-- ── Q8 : SLT on the 32-bit ALU ── -->
+  <section class="q" id="q8">
+    <div class="qhead"><span class="qnum">QUESTION 08</span><h2>Set-Less-Than on the 32-bit ALU</h2><span class="qtag">datapath · SLT · 32-bit</span></div>
+    <div class="prompt"><span class="pl">From the doctor’s slide</span>
+      Configure the 32-bit ALU for the <b>SLT</b> (set-less-than) operation with <span class="m">A = 25</span> and <span class="m">B = 32</span>. What does <span class="m">Y</span> become, and why?</div>
+    <div class="solband"><span class="t">الحل <span class="ar">· Solution</span></span><span class="ln"></span></div>
+    <div class="step"><div class="n">1</div><div class="b"><p><b>Pick the control.</b> SLT is <span class="m">F<sub>2:0</sub> = 111</span> (from the ALU table in Q4).</p></div></div>
+    <div class="step"><div class="n">2</div><div class="b"><p><b>F<sub>2</sub> = 1 makes the adder subtract.</b> It computes <span class="m">A − B = 25 − 32 = −7</span>.</p></div></div>
+    <div class="step"><div class="n">3</div><div class="b"><p><b>Look at the sign bit.</b> <span class="m">−7</span> in two’s complement has a <span class="m">1</span> in the most-significant bit (<span class="m">S<sub>31</sub> = 1</span>), which means the result is negative → <span class="m">A &lt; B</span>.</p></div></div>
+    <div class="step"><div class="n">4</div><div class="b"><p><b>F<sub>1:0</sub> = 11 selects <span class="m">S<sub>31</sub></span>, zero-extended.</b> So the output is a 32-bit <span class="m">1</span>.</p></div></div>
+    <div class="answer"><span class="lbl">Final answer · SLT(25, 32)</span><div class="val">Y = 0x0000 0001 &nbsp; (because 25 &lt; 32, SLT returns 1)</div></div>
+    <div class="idea"><b>الفكرة.</b> الـ SLT بيطرح A − B ويبص على <b>بت الإشارة</b> (S<sub>31</sub>): لو الناتج سالب يبقى A أصغر من B فالخرج = 1، وإلا 0. هنا 25 − 32 = −7 (سالب) → A &lt; B → Y = 1. الـ F<sub>2</sub>=1 خلّى الجامع يطرح، والـ mux اختار بت الإشارة موسّع بالأصفار.</div>
+    <a class="backtop" href="#q8">↑ back to top of Q8</a>
+  </section>
+
+  <!-- ── Q9 : IEEE 754 floating point ── -->
+  <section class="q" id="q9">
+    <div class="qhead"><span class="qnum">QUESTION 09</span><h2>IEEE-754 single-precision</h2><span class="qtag">number systems · floating point</span></div>
+    <div class="prompt"><span class="pl">From the doctor’s slide</span>
+      Represent the value <span class="m">228</span> in 32-bit IEEE-754 floating-point format. Give the sign, biased exponent, fraction, and the final hexadecimal.</div>
+    <div class="solband"><span class="t">الحل <span class="ar">· Solution</span></span><span class="ln"></span></div>
+    <p>Single precision = <b>1 sign bit · 8 exponent bits · 23 fraction bits</b>, with exponent <b>bias = 127</b>.</p>
+    <div class="step"><div class="n">1</div><div class="b"><p><b>Decimal → binary.</b> <span class="m">228 = 11100100₂</span>.</p></div></div>
+    <div class="step"><div class="n">2</div><div class="b"><p><b>Binary scientific notation</b> (float the point after the leading 1): <span class="m">11100100 = 1.11001 × 2<sup>7</sup></span>.</p></div></div>
+    <div class="step"><div class="n">3</div><div class="b"><p><b>Fill the fields.</b> Sign = <span class="m">0</span> (positive). Biased exponent = <span class="m">127 + 7 = 134 = 10000110₂</span>. Fraction = the bits after the leading 1 (which is implicit, not stored) = <span class="m">110 0100 0000 0000 0000 0000</span>.</p></div></div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Sign (1)</th><th>Biased exponent (8)</th><th>Fraction (23)</th></tr></thead>
+      <tbody><tr><td class="mono">0</td><td class="mono">10000110</td><td class="mono">110 0100 0000 0000 0000 0000</td></tr></tbody>
+    </table></div>
+    <div class="eq">0100 0011 0110 0100 0000 0000 0000 0000 = <b>0x43640000</b></div>
+    <div class="answer"><span class="lbl">Final answer · 228 in IEEE-754</span><div class="val">0 · 10000110 · 1100100… = 0x43640000</div></div>
+    <div class="idea"><b>الفكرة (طريقة الدكتور).</b> حوّل لـ binary → اكتبه <span class="m">1.f × 2<sup>E</sup></span> → الإشارة (0 موجب) + الأس المتحيّز (127 + E) + الكسر (البتات بعد الـ 1 الضمنية). الـ 1 اللي قبل الفاصلة مبتتخزنش. طلع 0x43640000. نفس الخطوات تشتغل لأي رقم (مثال الدكتور التاني: −58.25 = 0xC2690000).</div>
+    <a class="backtop" href="#q9">↑ back to top of Q9</a>
+  </section>
+
+  <!-- ── Q10 : Memory array + register file ── -->
+  <section class="q" id="q10">
+    <div class="qhead"><span class="qnum">QUESTION 10</span><h2>Memory array &amp; the register file</h2><span class="qtag">memory · register file</span></div>
+    <div class="prompt"><span class="pl">From the doctor’s slides</span>
+      For the <span class="m">2² × 3</span> memory array below, what 3-bit word is stored at address <span class="m">10</span>? Give the full address→data table. Then describe the ports of a <b>register file</b> (multi-ported memory).</div>
+    <div class="solband"><span class="t">الحل <span class="ar">· Solution</span></span><span class="ln"></span></div>
+    <p>An <span class="m">N</span>-address, <span class="m">M</span>-bit array has <span class="m">2<sup>N</sup></span> rows (<b>depth</b> = words) and <span class="m">M</span> columns (<b>width</b> = word size). Here <span class="m">N = 2, M = 3</span> → 4 words × 3 bits. A 2:4 decoder raises exactly one wordline (the address); that row’s stored bits drive the bitlines out as Data.</p>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th class="mono">Address</th><th class="mono">Data (stored word)</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">00</td><td class="mono">011</td></tr>
+        <tr><td class="mono">01</td><td class="mono">110</td></tr>
+        <tr><td class="mono hi">10</td><td class="mono hi">100</td></tr>
+        <tr><td class="mono">11</td><td class="mono">010</td></tr>
+      </tbody>
+    </table></div>
+    <div class="answer small"><span class="lbl">Read address 10</span><div class="val">The 3-bit word stored at address 10 is <span class="m">100</span>.</div></div>
+
+    <h3>Register file = small multi-ported memory</h3>
+    <figure><div class="fig">
+      <svg viewBox="0 0 520 250" role="img" aria-label="Three-ported register file: two read ports A1/RD1 and A2/RD2, one write port A3/WD3 with WE3, clocked.">
+        <rect x="170" y="40" width="180" height="170" rx="8" fill="var(--card)" class="stroke" stroke-width="2"/>
+        <text x="260" y="130" text-anchor="middle" font-family="var(--mono)" font-size="16" font-weight="700" fill="var(--ink)">Register</text>
+        <text x="260" y="150" text-anchor="middle" font-family="var(--mono)" font-size="16" font-weight="700" fill="var(--ink)">File</text>
+        <!-- read port 1 -->
+        <line x1="120" y1="70" x2="170" y2="70" class="wire"/><text x="116" y="74" text-anchor="end" font-family="var(--mono)" font-size="13" fill="var(--blue)">A1</text>
+        <line x1="350" y1="70" x2="400" y2="70" class="wire"/><text x="406" y="74" font-family="var(--mono)" font-size="13" fill="var(--copper)">RD1</text>
+        <!-- read port 2 -->
+        <line x1="120" y1="105" x2="170" y2="105" class="wire"/><text x="116" y="109" text-anchor="end" font-family="var(--mono)" font-size="13" fill="var(--blue)">A2</text>
+        <line x1="350" y1="105" x2="400" y2="105" class="wire"/><text x="406" y="109" font-family="var(--mono)" font-size="13" fill="var(--copper)">RD2</text>
+        <!-- write port -->
+        <line x1="120" y1="150" x2="170" y2="150" class="wire"/><text x="116" y="154" text-anchor="end" font-family="var(--mono)" font-size="13" fill="var(--blue)">A3</text>
+        <line x1="120" y1="180" x2="170" y2="180" class="wire"/><text x="116" y="184" text-anchor="end" font-family="var(--mono)" font-size="13" fill="var(--blue)">WD3</text>
+        <!-- WE3 + CLK on top -->
+        <line x1="230" y1="10" x2="230" y2="40" class="wire"/><text x="230" y="26" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--ink-2)">WE3</text>
+        <line x1="290" y1="10" x2="290" y2="40" class="wire"/><text x="290" y="26" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--ink-2)">CLK</text>
+      </svg>
+    </div><figcaption>3-ported register file — two read ports (A1→RD1, A2→RD2) and one write port (A3/WD3, enabled by WE3 on the clock edge).</figcaption></figure>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Port</th><th>Signals</th><th>Job</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">Read 1</td><td class="mono">A1 → RD1</td><td>read the word at address A1</td></tr>
+        <tr><td class="mono">Read 2</td><td class="mono">A2 → RD2</td><td>read the word at address A2</td></tr>
+        <tr><td class="mono">Write</td><td class="mono">A3, WD3, WE3</td><td>write WD3 to address A3 when WE3 = 1 (on clock edge)</td></tr>
+      </tbody>
+    </table></div>
+    <div class="idea"><b>الفكرة.</b> الـ memory array عبارة عن صفوف؛ الـ decoder بيفعّل صف واحد (العنوان) فتطلع بتاته على خطوط الـ Data — فالمخزّن على عنوان 10 هو 100. الـ <b>register file</b> = ذاكرة صغيرة متعددة المنافذ: <b>منفذين قراءة</b> (A1/RD1، A2/RD2) و<b>منفذ كتابة</b> (A3/WD3 مع WE3) — بيستخدمها المعالج يقرا معاملين ويكتب نتيجة في نفس الدورة.</div>
+    <a class="backtop" href="#q10">↑ back to top of Q10</a>
+  </section>
+
+  <footer>
+    <b>CSE132 — Computer Architecture &amp; Organization.</b> Solved study edition, built from the course material (Harris &amp; Harris, <i>Digital Design and Computer Architecture</i>) and the exam paper. Work each question yourself first, then check the steps.<br>
+    <span style="font-size:12px">Reference solutions for study — always confirm the intended method with your instructor.</span>
+    <br><a class="backtop" href="#top" onclick="scrollTo(0,0);return false;">↑ back to top</a>
+  </footer>
+
+</div>
+
+<script>
+  // theme toggle (persists in this tab session)
+  (function () {
+    var root = document.documentElement, btn = document.getElementById('tgl');
+    function cur() {
+      var a = root.getAttribute('data-theme');
+      if (a) return a;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    btn.addEventListener('click', function () {
+      var next = cur() === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { sessionStorage.setItem('cse132-theme', next); } catch (e) {}
+    });
+    try { var s = sessionStorage.getItem('cse132-theme'); if (s) root.setAttribute('data-theme', s); } catch (e) {}
+  })();
+  // scroll progress bar
+  (function () {
+    var bar = document.getElementById('bar');
+    function upd() {
+      var h = document.documentElement, max = h.scrollHeight - h.clientHeight;
+      bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+    }
+    document.addEventListener('scroll', upd, { passive: true });
+    window.addEventListener('resize', upd); upd();
+  })();
+</script>
+</body>
+</html>
