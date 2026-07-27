@@ -7,12 +7,13 @@
 // Every answer is saved to the mastery profile so weak topics resurface later.
 // ───────────────────────────────────────────────────────────
 import { useState, useEffect, useRef } from 'react'
-import { GraduationCap, Loader2, ArrowLeft, ArrowRight, Check, X, Clock, RotateCcw, History, Trash2, Filter } from 'lucide-react'
+import { GraduationCap, Loader2, ArrowLeft, ArrowRight, Check, X, RotateCcw, History, Trash2, Filter } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { RichText } from './RichText'
 import { FillTableInput } from './answers/FillTableInput'
 import { ComputeValueInput } from './answers/ComputeValueInput'
 import { DeriveEquationInput } from './answers/DeriveEquationInput'
+import { ScoreRing } from './ScoreRing'
 import { gradeFillTable, gradeComputeValue, gradeDeriveEquation } from '@/lib/ai/grading'
 
 interface Props {
@@ -250,11 +251,14 @@ export function ExamView({ courseSlug, courseName, onExit }: Props) {
   // ── Loading ──────────────────────────────────────────────
   if (phase === 'loading') {
     return (
-      <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12, color:'var(--t3)' }}>
+      <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:13, color:'var(--t3)', padding:20 }}>
         <Loader2 size={26} style={{ animation:'spin 0.9s linear infinite', color:'var(--accent)' }} />
-        <div style={{ fontSize:13 }}>بحضّر امتحان كامل من مادتك…</div>
-        <div style={{ fontSize:11.5 }}>({count} سؤال — ممكن ياخد لحظات)</div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <div style={{ fontSize:13.5, color:'var(--t2)', fontWeight:600, textAlign:'center' }}>بقرا مواد <b style={{ color:'var(--t)' }}>{courseName || courseSlug}</b> وبحضّرلك امتحانك…</div>
+        <div style={{ width:190, height:4, borderRadius:2, background:'var(--s1)', overflow:'hidden' }}>
+          <div style={{ width:'38%', height:'100%', background:'linear-gradient(90deg, transparent, var(--accent), transparent)', animation:'scan 1.1s ease-in-out infinite' }} />
+        </div>
+        <div style={{ fontSize:11.5 }}>({count} سؤال — منها مسائل تُحَل زي امتحان الدكتور)</div>
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes scan{0%{transform:translateX(-120%)}100%{transform:translateX(400%)}}`}</style>
       </div>
     )
   }
@@ -311,7 +315,6 @@ export function ExamView({ courseSlug, courseName, onExit }: Props) {
 
   // ── Report ───────────────────────────────────────────────
   if (phase === 'report') {
-    const good = pct >= 70
     const wrongCount = questions.reduce((n, q, i) => n + (isCorrect(q, answers[i]) ? 0 : 1), 0)
     // Per-topic breakdown
     const byTopic: Record<string, { correct: number; total: number }> = {}
@@ -323,10 +326,8 @@ export function ExamView({ courseSlug, courseName, onExit }: Props) {
     const topics = Object.entries(byTopic).sort((a, b) => (a[1].correct / a[1].total) - (b[1].correct / b[1].total))
     return (
       <div style={{ flex:1, overflowY:'auto', padding:'22px 20px', display:'flex', flexDirection:'column', gap:16 }}>
-        <div style={{ textAlign:'center', display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
-          <div style={{ fontSize:32 }}>{good ? '🎉' : pct >= 40 ? '💪' : '📚'}</div>
-          <div style={{ fontWeight:800, fontSize:20, color:'var(--t)' }}>{score} / {questions.length}</div>
-          <div style={{ fontSize:14, fontWeight:700, color: good ? '#22c55e' : pct >= 40 ? '#f59e0b' : 'var(--accent)' }}>{pct}%</div>
+        <div style={{ display:'flex', justifyContent:'center', paddingTop:4 }}>
+          <ScoreRing pct={pct} score={score} total={questions.length} />
         </div>
 
         {/* Per-topic breakdown */}
@@ -429,14 +430,22 @@ export function ExamView({ courseSlug, courseName, onExit }: Props) {
   // ── Exam (answering) ─────────────────────────────────────
   const q = questions[idx]
   const low = timeLeft <= 60
+  const totalTime = questions.length * SECONDS_PER_Q
+  const tfrac = totalTime ? Math.max(0, timeLeft) / totalTime : 0
+  const TC = 2 * Math.PI * 6
   return (
     <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
       {/* Top bar: progress + timer */}
       <div style={{ padding:'10px 20px', borderBottom:'1px solid var(--br)', flexShrink:0 }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
           <span style={{ fontSize:12.5, fontWeight:700, color:'var(--t2)' }}>Q {idx + 1} / {questions.length}</span>
-          <span style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:12.5, fontWeight:700, color: low ? 'var(--accent)' : 'var(--t2)' }}>
-            <Clock size={13} /> {fmt(Math.max(0, timeLeft))}
+          <span style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize:12.5, fontWeight:700, color: low ? 'var(--accent)' : 'var(--t2)', fontFamily:'var(--font-mono)' }}>
+            <svg width={16} height={16} style={{ transform:'rotate(-90deg)' }}>
+              <circle cx={8} cy={8} r={6} fill="none" stroke="var(--s1)" strokeWidth={2.5} />
+              <circle cx={8} cy={8} r={6} fill="none" stroke={low ? 'var(--accent)' : (tfrac < 0.4 ? '#f59e0b' : 'var(--t2)')} strokeWidth={2.5} strokeLinecap="round"
+                strokeDasharray={TC} strokeDashoffset={TC * (1 - tfrac)} style={{ transition:'stroke-dashoffset 1s linear' }} />
+            </svg>
+            {fmt(Math.max(0, timeLeft))}
           </span>
         </div>
         <div style={{ height:4, borderRadius:2, background:'var(--s1)', overflow:'hidden' }}>

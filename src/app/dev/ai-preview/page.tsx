@@ -10,6 +10,7 @@ import { ComputeValueInput } from '@/components/ai/answers/ComputeValueInput'
 import { DeriveEquationInput } from '@/components/ai/answers/DeriveEquationInput'
 import { buildDivisionTable, buildIeee754, buildDerive } from '@/lib/ai/worked'
 import { gradeFillTable, gradeComputeValue, gradeDeriveEquation } from '@/lib/ai/grading'
+import { ScoreRing } from '@/components/ai/ScoreRing'
 
 function FillTableDemo() {
   const div = buildDivisionTable(14, 7, 4)!
@@ -28,6 +29,12 @@ function FillTableDemo() {
 
   return (
     <div style={{ marginBottom: 22 }}>
+      <div style={{ fontSize: 12.5, color: 'var(--t3)', marginBottom: 6 }}>ScoreRing (result screens)</div>
+      <div style={{ display: 'flex', gap: 24, justifyContent: 'center', marginBottom: 18 }}>
+        <ScoreRing pct={73} score={11} total={15} />
+        <ScoreRing pct={47} score={7} total={15} />
+        <ScoreRing pct={20} score={3} total={15} />
+      </div>
       <div style={{ fontSize: 12.5, color: 'var(--t3)', marginBottom: 6 }}>fill_table · answering (14 ÷ 7)</div>
       <FillTableInput payload={div} value={grid} onChange={setGrid} />
       <div style={{ fontSize: 12.5, color: 'var(--t3)', margin: '14px 0 6px' }}>fill_table · review — {res.score}/{res.max} cells</div>

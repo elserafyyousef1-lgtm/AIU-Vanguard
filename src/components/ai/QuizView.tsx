@@ -10,6 +10,7 @@ import { useState, useEffect } from 'react'
 import { Target, Check, X, RotateCcw, ArrowRight, Loader2, ArrowLeft, History, GraduationCap } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { RichText } from './RichText'
+import { ScoreRing } from './ScoreRing'
 
 interface Props {
   courseSlug: string
@@ -262,18 +263,15 @@ export function QuizView({ courseSlug, courseName, onExit, onStartExam }: Props)
 
   // ── Summary ──────────────────────────────────────────────
   if (phase === 'summary') {
-    const good = pct >= 70
     return (
       <div style={{ flex:1, overflowY:'auto', padding:'24px 20px', display:'flex', flexDirection:'column', gap:18, alignItems:'center' }}>
-        <div style={{ fontSize:34 }}>{good ? '🎉' : total === 0 ? '👋' : '💪'}</div>
-        <div style={{ fontWeight:800, fontSize:18, color:'var(--t)' }}>
-          {total === 0 ? 'No questions answered' : `${score} / ${total} correct`}
-        </div>
-        {total > 0 && (
-          <div style={{
-            fontSize:13, fontWeight:700,
-            color: good ? '#22c55e' : pct >= 40 ? '#f59e0b' : 'var(--accent)',
-          }}>{pct}%</div>
+        {total > 0 ? (
+          <ScoreRing pct={pct} score={score} total={total} />
+        ) : (
+          <>
+            <div style={{ fontSize:34 }}>👋</div>
+            <div style={{ fontWeight:800, fontSize:18, color:'var(--t)' }}>No questions answered</div>
+          </>
         )}
         {weak.length > 0 && (
           <div style={{ width:'100%', background:'var(--s3)', border:'1px solid var(--br)', borderRadius:12, padding:'14px 16px' }}>
