@@ -2,8 +2,27 @@
 // src/app/dev/ai-preview/page.tsx — DEV ONLY: visual harness for the AI answer presentation.
 // Renders the RichText renderer inside a replica of the AIPanel assistant bubble so we can
 // polish typography, math, code, lists, tables, and callouts without needing auth or the API.
+import { useState } from 'react'
 import { RichText } from '@/components/ai/RichText'
 import { FileText, Sparkles } from 'lucide-react'
+import { FillTableInput } from '@/components/ai/answers/FillTableInput'
+import { buildDivisionTable } from '@/lib/ai/worked'
+import { gradeFillTable } from '@/lib/ai/grading'
+
+function FillTableDemo() {
+  const div = buildDivisionTable(14, 7, 4)!
+  const [grid, setGrid] = useState<string[][]>([])
+  const partial = div.solution.map((r, ri) => r.map((c, ci) => (ri === 0 ? c : (ci === 3 ? '99' : c))))  // row 0 blank, col-3 wrong
+  const res = gradeFillTable(div, partial)
+  return (
+    <div style={{ marginBottom: 22 }}>
+      <div style={{ fontSize: 12.5, color: 'var(--t3)', marginBottom: 6 }}>fill_table · answering (14 ÷ 7)</div>
+      <FillTableInput payload={div} value={grid} onChange={setGrid} />
+      <div style={{ fontSize: 12.5, color: 'var(--t3)', margin: '14px 0 6px' }}>fill_table · review — {res.score}/{res.max} cells</div>
+      <FillTableInput payload={div} value={partial} review cellResults={res.cellResults} />
+    </div>
+  )
+}
 
 const LINALG = `## حل النظام خطوة بخطوة
 
@@ -61,6 +80,21 @@ $$\\theta := \\theta - \\alpha \\, \\nabla_\\theta J(\\theta)$$
 
 Exam tip: if features aren't scaled, convergence is slow — normalise first.`
 
+const ARCH = `## قسمة 14 ÷ 7 بطريقة الدكتور
+
+| i | A_i | R = {R'≪1, A_i} | D = R − B | Q_i | R' |
+|---|---|---|---|---|---|
+| 3 | 1 | 0001 | 1−7 = −6 < 0 | 0 | 0001 |
+| 2 | 1 | 0011 | 3−7 = −4 < 0 | 0 | 0011 |
+| 1 | 1 | 0111 | 7−7 = 0 ≥ 0 | 1 | 0000 |
+| 0 | 0 | 0000 | 0−7 = −7 < 0 | 0 | 0000 |
+
+$$\\boxed{Q = 0010_2 = 2, \\quad R = 0}$$
+
+> Exam tip: عمود D هو ناتج الطرح $R - B$، مش المقسوم عليه.
+> Trap: متنساش الـ bias = 127 في الـ floating point.
+> Check yourself: احسب $9 \\div 3$ بنفس الجدول.`
+
 function Bubble({ content, sources, ungrounded }: { content: string; sources?: { title: string; page: number }[]; ungrounded?: boolean }) {
   return (
     <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:4, marginBottom:18 }}>
@@ -98,6 +132,8 @@ export default function AIPreview() {
         <Bubble content={LINALG} sources={[{ title:'DE_Systems.pdf', page:12 }]} />
         <Bubble content={MIXED} sources={[{ title:'CSE221_SQL.pdf', page:7 }]} />
         <Bubble content={ENGLISH} ungrounded />
+        <Bubble content={ARCH} sources={[{ title:'CSE132_Architecture_Part_1.pdf', page:24 }]} />
+        <FillTableDemo />
       </div>
     </div>
   )

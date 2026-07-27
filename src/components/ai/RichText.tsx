@@ -91,10 +91,10 @@ function renderProse(text: string, key: string): React.ReactNode[] {
         <div key={key + 't' + li} style={{ overflowX: 'auto', margin: '8px 0', border: '1px solid var(--br)', borderRadius: 10 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.92em' }}>
             <thead><tr>{header.map((h, x) => (
-              <th key={x} dir="auto" style={{ textAlign: 'start', padding: '7px 11px', background: 'var(--s2)', color: 'var(--t2)', fontWeight: 700, borderBottom: '1px solid var(--br2)', whiteSpace: 'nowrap' }}>{inline(h, key + 'th' + x)}</th>
+              <th key={x} dir="auto" style={{ textAlign: 'start', padding: '7px 11px', background: 'var(--s2)', color: 'var(--t)', fontWeight: 700, fontFamily: 'var(--font-mono)', fontSize: '0.9em', letterSpacing: '0.02em', borderBottom: '1px solid var(--br2)', whiteSpace: 'nowrap' }}>{inline(h, key + 'th' + x)}</th>
             ))}</tr></thead>
             <tbody>{rows.map((r, y) => (
-              <tr key={y}>{r.map((c, x) => (
+              <tr key={y} style={{ background: y % 2 ? 'rgba(127,127,127,0.05)' : 'transparent' }}>{r.map((c, x) => (
                 <td key={x} dir="auto" style={{ padding: '7px 11px', color: 'var(--t2)', borderBottom: y < rows.length - 1 ? '1px solid var(--br)' : 'none', verticalAlign: 'top' }}>{inline(c, key + 'td' + y + '-' + x)}</td>
               ))}</tr>
             ))}</tbody>
@@ -104,16 +104,34 @@ function renderProse(text: string, key: string): React.ReactNode[] {
       continue
     }
 
-    // Blockquote → callout
+    // Blockquote → typed callout. A leading label (Exam tip / Trap / Check / Definition,
+    // or Arabic نصيحة / فخ / تحقق / تعريف) colors the border + label so the tutor's
+    // exam tips and traps read as purpose-built study callouts, not generic quotes.
     if (t.startsWith('>')) {
       flushList()
       const quote: string[] = []
       let j = li
       while (j < lines.length && lines[j].trim().startsWith('>')) { quote.push(lines[j].trim().replace(/^>\s?/, '')); j++ }
       li = j - 1
+      const first = quote[0] || ''
+      const m0 = first.match(/^(exam tip|tip|trap|warning|check(?: yourself)?|definition|note|نصيحة(?:\s*للامتحان)?|فخ|تحقق|تعريف|ملاحظة|ملحوظة)\s*[:：]\s*/i)
+      let accent = 'var(--accent)'
+      if (m0) {
+        const lbl = m0[1].toLowerCase()
+        accent = /trap|warning|فخ/.test(lbl) ? '#e0913a'
+          : /check|تحقق/.test(lbl) ? '#3fae6a'
+            : /definition|تعريف/.test(lbl) ? '#5b8def'
+              : /tip|نصيحة/.test(lbl) ? '#d99b2b'
+                : 'var(--accent)'
+      }
       blocks.push(
-        <div key={key + 'q' + li} dir="auto" style={{ margin: '8px 0', padding: '9px 13px', background: 'var(--s2)', borderInlineStart: '3px solid var(--accent)', borderRadius: '0 8px 8px 0', color: 'var(--t2)', fontSize: '0.96em', lineHeight: 1.6 }}>
-          {quote.map((q, x) => <div key={x}>{inline(q, key + 'qi' + x)}</div>)}
+        <div key={key + 'q' + li} dir="auto" style={{ margin: '9px 0', padding: '9px 13px', background: 'var(--s2)', borderInlineStart: `3px solid ${accent}`, borderRadius: '0 8px 8px 0', color: 'var(--t2)', fontSize: '0.96em', lineHeight: 1.6 }}>
+          {quote.map((q, x) => {
+            if (x === 0 && m0) {
+              return <div key={x}><strong style={{ color: accent, fontWeight: 700 }}>{q.slice(0, m0[0].length)}</strong>{inline(q.slice(m0[0].length), key + 'qi' + x)}</div>
+            }
+            return <div key={x}>{inline(q, key + 'qi' + x)}</div>
+          })}
         </div>
       )
       continue
@@ -173,9 +191,17 @@ export function RichText({ content }: { content: string }) {
       if (si % 2 === 1) {
         const tex = seg.trim()
         if (!tex) return
+        // A lone \boxed{...} is the final answer — give it a distinct copper "Final answer" card
+        // so the one thing a student scans for under exam pressure pops.
+        const boxed = /^\\boxed/.test(tex)
         blocks.push(
-          <div key={'m' + pi + '-' + si} style={{ margin: '10px 0', padding: '10px 14px', background: 'var(--s2)', border: '1px solid var(--br)', borderRadius: 10, overflowX: 'auto', textAlign: 'center' }}
-               dangerouslySetInnerHTML={{ __html: math(tex, true) }} />
+          <div key={'m' + pi + '-' + si} style={{ margin: '12px 0', padding: boxed ? '7px 14px 11px' : '10px 14px',
+            background: boxed ? 'rgba(201,128,58,0.09)' : 'var(--s2)',
+            border: boxed ? '1.5px solid rgba(201,128,58,0.5)' : '1px solid var(--br)',
+            borderRadius: 12, overflowX: 'auto' }}>
+            {boxed && <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.62em', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#c9803a', fontWeight: 700, marginBottom: 4 }}>Final answer · الإجابة النهائية</div>}
+            <div style={{ textAlign: 'center' }} dangerouslySetInnerHTML={{ __html: math(tex, true) }} />
+          </div>
         )
         return
       }

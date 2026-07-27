@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { retrieveCourseContext } from '@/lib/ai/retrieval'
 import { createClient } from '@/lib/supabase/server'
+import { buildDivisionTable, buildTruthTable, type WorkedFillTable } from '@/lib/ai/worked'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -20,6 +21,42 @@ const GEMINI_MODEL = 'gemini-2.5-flash'
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`
 
 type Difficulty = 'easy' | 'medium' | 'hard'
+
+// Courses that get the professor's WORKED problems (deterministic answer keys) mixed in.
+// Right now only Computer Architecture (CSE311), whose curriculum IS division traces + truth tables.
+const WORKED_COURSES = new Set(['CSE311'])
+
+// Boolean expressions representative of the arch course's CMOS/logic gates.
+const TT_POOL: { expr: string; vars: string[] }[] = [
+  { expr: '!(A*B + C)', vars: ['A', 'B', 'C'] },      // AND-OR-INVERT (the midterm Q1 gate)
+  { expr: '!((A + B)*C)', vars: ['A', 'B', 'C'] },    // OR-AND-INVERT
+  { expr: '!(A + B*C)', vars: ['A', 'B', 'C'] },
+  { expr: "A'*B + A*C", vars: ['A', 'B', 'C'] },      // 2:1 multiplexer form
+  { expr: '(A+B)*(A+C)', vars: ['A', 'B', 'C'] },
+  { expr: '!(A*B)', vars: ['A', 'B'] },               // NAND
+  { expr: '!(A + B)', vars: ['A', 'B'] },             // NOR
+  { expr: 'A^B', vars: ['A', 'B'] },                  // XOR
+]
+const rint = (lo: number, hi: number) => lo + Math.floor(Math.random() * (hi - lo + 1))
+
+// Build `n` worked fill-in-the-table problems with CORRECT, code-computed answer keys.
+function buildWorkedProblems(n: number): WorkedFillTable[] {
+  const out: WorkedFillTable[] = []
+  for (let k = 0; k < n; k++) {
+    if (k % 2 === 0) {
+      // restoring-division trace (4-bit, small clean-ish numbers)
+      const divisor = rint(2, 7)
+      const dividend = Math.min(15, divisor * rint(2, 4) + rint(0, divisor - 1))
+      const t = buildDivisionTable(dividend, divisor, 4)
+      if (t) out.push(t)
+    } else {
+      const pick = TT_POOL[rint(0, TT_POOL.length - 1)]
+      const t = buildTruthTable(pick.expr, pick.vars)
+      if (t) out.push(t)
+    }
+  }
+  return out
+}
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.GEMINI_API_KEY
@@ -58,13 +95,18 @@ export async function POST(req: NextRequest) {
     ? ((weakData as any).data as Array<{ topic: string }>).map(w => w.topic).filter(Boolean).map(t => t.slice(0, 120)).slice(0, 6)
     : []
 
+  // Reserve a few slots for the professor's worked problems (deterministic keys);
+  // the rest are MCQs from the model.
+  const nWorked = WORKED_COURSES.has(String(courseSlug)) ? Math.min(3, Math.max(1, Math.floor(count / 5))) : 0
+  const nMcq = count - nWorked
+
   const grounding = ragContext
     ? `Base the exam STRICTLY on these course materials; every correct answer must be supported by them.\n\n--- COURSE MATERIALS ---\n${ragContext}`
     : `No uploaded materials were found, so use standard, correct knowledge for this course. Keep it accurate.`
 
   const systemInstruction = [
     `You are the exam-setter writing a realistic MOCK FINAL for "${courseName || courseSlug || 'this university course'}" at Alamein International University.`,
-    `Produce EXACTLY ${count} ${difficulty} multiple-choice questions that together simulate a real final: a spread of topics, a realistic difficulty curve, and genuine understanding (not trivia).`,
+    `Produce EXACTLY ${nMcq} ${difficulty} multiple-choice questions that together simulate a real final: a spread of topics, a realistic difficulty curve, and genuine understanding (not trivia).`,
     weakTopics.length ? `Give extra weight to topics the student is weak on: ${weakTopics.join(', ')}.` : ``,
     `Rules for EVERY question:`,
     `- Exactly 4 options; exactly one correct. The 3 distractors must be plausible common mistakes.`,
@@ -78,11 +120,11 @@ export async function POST(req: NextRequest) {
   ].filter(Boolean).join('\n')
 
   const requestBody = {
-    contents: [{ role: 'user', parts: [{ text: `Generate the ${count}-question mock exam now.` }] }],
+    contents: [{ role: 'user', parts: [{ text: `Generate the ${nMcq}-question mock exam now.` }] }],
     systemInstruction: { parts: [{ text: systemInstruction }] },
     generationConfig: {
       temperature: 0.85,
-      maxOutputTokens: Math.min(8000, 1200 + count * 450),
+      maxOutputTokens: Math.min(8000, 1200 + nMcq * 450),
       responseMimeType: 'application/json',
       responseSchema: {
         type: 'OBJECT',
@@ -136,6 +178,7 @@ export async function POST(req: NextRequest) {
       typeof q.correctIndex === 'number' && q.correctIndex >= 0 && q.correctIndex <= 3 &&
       typeof q.explanation === 'string'
     ).map((q: any) => ({
+      type: 'mcq' as const,
       question: q.question,
       options: q.options as string[],
       correctIndex: Math.round(q.correctIndex),
@@ -143,11 +186,28 @@ export async function POST(req: NextRequest) {
       topic: typeof q.topic === 'string' && q.topic.trim() ? q.topic.trim() : 'General',
     }))
 
-    if (valid.length < Math.ceil(count / 2)) {
+    if (valid.length < Math.ceil(nMcq / 2)) {
       return NextResponse.json({ error: 'Could not build a valid exam. Please try again.' }, { status: 502 })
     }
 
-    return NextResponse.json({ questions: valid, grounded: Boolean(ragContext) })
+    // Mix in the professor's worked problems (deterministic, correct answer keys) at a
+    // spread of positions so the exam isn't "all MCQ then all tables".
+    const worked = buildWorkedProblems(nWorked).map(w => ({
+      type: 'fill_table' as const,
+      question: w.question,
+      options: [] as string[],
+      correctIndex: -1,
+      explanation: w.explanation,
+      topic: w.topic,
+      payload: { columns: w.columns, solution: w.solution, givens: w.givens, colFormats: w.colFormats, cellFormat: w.cellFormat },
+    }))
+    const questions: any[] = valid.slice()
+    if (worked.length) {
+      const step = Math.max(1, Math.floor(questions.length / (worked.length + 1)))
+      worked.forEach((w, i) => questions.splice(Math.min(questions.length, (i + 1) * step + i), 0, w))
+    }
+
+    return NextResponse.json({ questions, grounded: Boolean(ragContext) })
   } catch {
     return NextResponse.json({ error: 'Connection error. Please try again.' }, { status: 500 })
   }

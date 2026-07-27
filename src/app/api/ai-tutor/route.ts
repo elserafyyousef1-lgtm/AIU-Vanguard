@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
 
   const requestBody: any = {
     contents,
-    generationConfig: { maxOutputTokens: 3000, temperature: 0.7 },
+    generationConfig: { maxOutputTokens: 4096, temperature: 0.4 },
   }
   if (groundedSystem) {
     requestBody.systemInstruction = { parts: [{ text: groundedSystem }] }

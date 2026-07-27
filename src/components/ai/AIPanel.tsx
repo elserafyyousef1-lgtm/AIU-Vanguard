@@ -1,7 +1,7 @@
 'use client'
 // src/components/ai/AIPanel.tsx
 import { useState, useRef, useEffect } from 'react'
-import { X, Send, Sparkles, Copy, Check, MessageSquare, Target, FileText, Image as ImageIcon, CalendarDays } from 'lucide-react'
+import { X, Send, Sparkles, Copy, Check, MessageSquare, Target, FileText, Image as ImageIcon, CalendarDays, GraduationCap } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { QuizView } from './QuizView'
 import { ExamView } from './ExamView'
@@ -9,6 +9,7 @@ import { StudyPlanView } from './StudyPlanView'
 import { CSE221_AI_PROMPT } from '@/lib/data/cse221'
 import { MAT312_AI_PROMPT } from '@/lib/data/mat312'
 import { AIE121_AI_PROMPT } from '@/lib/data/aie121'
+import { CSE311_AI_PROMPT } from '@/lib/data/cse311'
 import { buildSystemPrompt } from '@/lib/data/aiPersona'
 import { COURSES } from '@/lib/data/courses'
 import type { AIMessage, AISource } from '@/types'
@@ -77,6 +78,7 @@ export function AIPanel({ courseSlug, onClose, quickChips = [], currentLecture }
   const courseKnowledge = courseSlug === 'CSE221' ? CSE221_AI_PROMPT
     : courseSlug === 'AIE121' ? AIE121_AI_PROMPT
     : courseSlug === 'MAT312' ? MAT312_AI_PROMPT
+    : courseSlug === 'CSE311' ? CSE311_AI_PROMPT
     : `This is a course at Alamein International University. Provide clean step-by-step help with worked examples.`
 
   const courseInfo = COURSES[courseSlug]
@@ -349,6 +351,7 @@ export function AIPanel({ courseSlug, onClose, quickChips = [], currentLecture }
           {([
             { key:'chat', label:'Chat', icon:<MessageSquare size={13} /> },
             { key:'quiz', label:'Quiz', icon:<Target size={13} /> },
+            { key:'exam', label:'Exam', icon:<GraduationCap size={13} /> },
             { key:'plan', label:'Plan', icon:<CalendarDays size={13} /> },
           ] as const).map(t => (
             <button
