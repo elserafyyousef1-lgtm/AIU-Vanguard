@@ -11,7 +11,9 @@ import { GraduationCap, Loader2, ArrowLeft, ArrowRight, Check, X, Clock, RotateC
 import { createClient } from '@/lib/supabase/client'
 import { RichText } from './RichText'
 import { FillTableInput } from './answers/FillTableInput'
-import { gradeFillTable } from '@/lib/ai/grading'
+import { ComputeValueInput } from './answers/ComputeValueInput'
+import { DeriveEquationInput } from './answers/DeriveEquationInput'
+import { gradeFillTable, gradeComputeValue, gradeDeriveEquation } from '@/lib/ai/grading'
 
 interface Props {
   courseSlug: string
@@ -33,17 +35,27 @@ interface Question {
   correctIndex: number
   explanation: string
   topic: string
-  type?: 'mcq' | 'fill_table'
-  payload?: any                 // fill_table: { columns, solution, givens, colFormats, cellFormat }
+  type?: 'mcq' | 'fill_table' | 'compute_value' | 'derive_equation'
+  payload?: any                 // worked types: the type-specific spec (table / fields / equation)
 }
 
-// ── per-question helpers that work for both MCQ and worked (fill_table) types ──
-const gradeOf = (q: Question, a: any) =>
-  q.type === 'fill_table' ? gradeFillTable(q.payload, Array.isArray(a) ? a : []) : null
-const isAnswered = (q: Question, a: any) =>
-  q.type === 'fill_table' ? Array.isArray(a) && a.some(row => Array.isArray(row) && row.some(c => (c ?? '').toString().trim() !== '')) : a != null
+// ── per-question helpers that work for MCQ and every worked (typed) question ──
+const asObj = (a: any) => (a && typeof a === 'object' && !Array.isArray(a) ? a : {})
+const gradeOf = (q: Question, a: any): any => {
+  if (q.type === 'fill_table') return gradeFillTable(q.payload, Array.isArray(a) ? a : [])
+  if (q.type === 'compute_value') return gradeComputeValue(q.payload, asObj(a))
+  if (q.type === 'derive_equation') return gradeDeriveEquation(q.payload, typeof a === 'string' ? a : '')
+  return null
+}
+const isAnswered = (q: Question, a: any) => {
+  if (q.type === 'fill_table') return Array.isArray(a) && a.some(row => Array.isArray(row) && row.some(c => (c ?? '').toString().trim() !== ''))
+  if (q.type === 'compute_value') return Object.values(asObj(a)).some(v => (v ?? '').toString().trim() !== '')
+  if (q.type === 'derive_equation') return typeof a === 'string' && a.trim() !== ''
+  return a != null
+}
 const isCorrect = (q: Question, a: any) => {
-  if (q.type === 'fill_table') { const r = gradeOf(q, a); return !!r && r.max > 0 && r.score === r.max }
+  if (q.type === 'fill_table' || q.type === 'compute_value') { const r = gradeOf(q, a); return !!r && r.max > 0 && r.score === r.max }
+  if (q.type === 'derive_equation') return !!gradeOf(q, a)?.correct
   return a === q.correctIndex
 }
 
@@ -148,13 +160,15 @@ export function ExamView({ courseSlug, courseName, onExit }: Props) {
       .eq('exam_id', id).order('position')
     setLoadingPast(false)
     if (!data || !data.length) return
+    const WORKED = ['fill_table', 'compute_value', 'derive_equation']
     setQuestions(data.map((r: any) => {
-      if (r.payload && r.payload.type === 'fill_table') {
-        return { type: 'fill_table', payload: r.payload.spec, question: r.question, options: [], correctIndex: -1, explanation: r.explanation || '', topic: r.topic || 'General' } as Question
+      const pt = r.payload?.type
+      if (WORKED.includes(pt)) {
+        return { type: pt, payload: r.payload.spec, question: r.question, options: [], correctIndex: -1, explanation: r.explanation || '', topic: r.topic || 'General' } as Question
       }
       return { type: 'mcq', question: r.question, options: Array.isArray(r.options) ? r.options : [], correctIndex: r.correct_index ?? -1, explanation: r.explanation || '', topic: r.topic || 'General' } as Question
     }))
-    setAnswers(data.map((r: any) => (r.payload && r.payload.type === 'fill_table' ? (r.payload.answer ?? []) : (r.chosen_index ?? null))))
+    setAnswers(data.map((r: any) => (WORKED.includes(r.payload?.type) ? (r.payload.answer ?? null) : (r.chosen_index ?? null))))
     setReviewing(true); setMistakesOnly(false); setPhase('report')
   }
 
@@ -363,6 +377,15 @@ export function ExamView({ courseSlug, courseName, onExit }: Props) {
                   <FillTableInput payload={q.payload} value={mine} review cellResults={grade?.cellResults} />
                   {grade && <div style={{ fontSize:11.5, color:'var(--t3)', marginTop:5, fontFamily:'var(--font-mono)' }}>الخلايا الصح: {grade.score}/{grade.max}</div>}
                 </div>
+              ) : q.type === 'compute_value' ? (
+                <div style={{ marginBottom:6 }}>
+                  <ComputeValueInput payload={q.payload} value={mine} review fieldResults={grade?.fieldResults} />
+                  {grade && <div style={{ fontSize:11.5, color:'var(--t3)', marginTop:5, fontFamily:'var(--font-mono)' }}>الحقول الصح: {grade.score}/{grade.max}</div>}
+                </div>
+              ) : q.type === 'derive_equation' ? (
+                <div style={{ marginBottom:6 }}>
+                  <DeriveEquationInput payload={q.payload} value={mine} review result={grade} />
+                </div>
               ) : (
                 <div style={{ display:'flex', flexDirection:'column', gap:4, marginBottom:6 }}>
                   {q.options.map((opt, oi) => {
@@ -446,6 +469,12 @@ export function ExamView({ courseSlug, courseName, onExit }: Props) {
             {q.type === 'fill_table' ? (
               <FillTableInput payload={q.payload} value={answers[idx]}
                 onChange={grid => setAnswers(a => { const c = [...a]; c[idx] = grid; return c })} />
+            ) : q.type === 'compute_value' ? (
+              <ComputeValueInput payload={q.payload} value={answers[idx]}
+                onChange={v => setAnswers(a => { const c = [...a]; c[idx] = v; return c })} />
+            ) : q.type === 'derive_equation' ? (
+              <DeriveEquationInput payload={q.payload} value={answers[idx]}
+                onChange={v => setAnswers(a => { const c = [...a]; c[idx] = v; return c })} />
             ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
               {q.options.map((opt, i) => {

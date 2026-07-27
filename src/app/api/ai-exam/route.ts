@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { retrieveCourseContext } from '@/lib/ai/retrieval'
 import { createClient } from '@/lib/supabase/server'
-import { buildDivisionTable, buildTruthTable, type WorkedFillTable } from '@/lib/ai/worked'
+import { buildDivisionTable, buildTruthTable, buildIeee754, buildSlt, buildDerive } from '@/lib/ai/worked'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -37,24 +37,29 @@ const TT_POOL: { expr: string; vars: string[] }[] = [
   { expr: '!(A + B)', vars: ['A', 'B'] },             // NOR
   { expr: 'A^B', vars: ['A', 'B'] },                  // XOR
 ]
+// Exactly-representable float32 values so the IEEE-754 answer is clean + exact.
+const FP_POOL = [228, -58.25, 12.5, 100, -7.75, 40.5, -320, 6.25, 85, -0.75]
 const rint = (lo: number, hi: number) => lo + Math.floor(Math.random() * (hi - lo + 1))
 
-// Build `n` worked fill-in-the-table problems with CORRECT, code-computed answer keys.
-function buildWorkedProblems(n: number): WorkedFillTable[] {
-  const out: WorkedFillTable[] = []
-  for (let k = 0; k < n; k++) {
-    if (k % 2 === 0) {
-      // restoring-division trace (4-bit, small clean-ish numbers)
-      const divisor = rint(2, 7)
-      const dividend = Math.min(15, divisor * rint(2, 4) + rint(0, divisor - 1))
-      const t = buildDivisionTable(dividend, divisor, 4)
-      if (t) out.push(t)
-    } else {
-      const pick = TT_POOL[rint(0, TT_POOL.length - 1)]
-      const t = buildTruthTable(pick.expr, pick.vars)
-      if (t) out.push(t)
-    }
-  }
+const workedQ = (type: string, w: { question: string; topic: string; explanation: string }, payload: any) => ({
+  type, question: w.question, options: [] as string[], correctIndex: -1, explanation: w.explanation, topic: w.topic, payload,
+})
+
+// Build `n` worked problems with CORRECT, code-computed answer keys — a varied mix of
+// the professor's types. The model NEVER writes these keys; our own code computes them.
+function buildWorkedProblems(n: number): any[] {
+  const makers: Array<() => any> = [
+    () => { const b = rint(2, 7); const a = Math.min(15, b * rint(2, 4) + rint(0, b - 1)); const t = buildDivisionTable(a, b, 4); return t && workedQ('fill_table', t, { columns: t.columns, solution: t.solution, givens: t.givens, colFormats: t.colFormats, cellFormat: t.cellFormat }) },
+    () => { const p = TT_POOL[rint(0, TT_POOL.length - 1)]; const t = buildTruthTable(p.expr, p.vars); return t && workedQ('fill_table', t, { columns: t.columns, solution: t.solution, givens: t.givens, colFormats: t.colFormats, cellFormat: t.cellFormat }) },
+    () => { const t = buildIeee754(FP_POOL[rint(0, FP_POOL.length - 1)]); return t && workedQ('compute_value', t, { fields: t.fields }) },
+    () => { const t = buildSlt(rint(1, 60), rint(1, 60)); return workedQ('compute_value', t, { fields: t.fields }) },
+    () => { const p = TT_POOL[rint(0, TT_POOL.length - 1)]; const t = buildDerive(p.expr, p.vars); return t && workedQ('derive_equation', t, { variables: t.variables, referenceEquation: t.referenceEquation }) },
+  ]
+  const order: number[] = []
+  for (let k = 0; k < n; k++) order.push(k % makers.length)
+  for (let k = order.length - 1; k > 0; k--) { const j = rint(0, k);[order[k], order[j]] = [order[j], order[k]] }  // shuffle
+  const out: any[] = []
+  for (const idx of order) { const q = makers[idx](); if (q) out.push(q) }
   return out
 }
 
@@ -191,16 +196,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Mix in the professor's worked problems (deterministic, correct answer keys) at a
-    // spread of positions so the exam isn't "all MCQ then all tables".
-    const worked = buildWorkedProblems(nWorked).map(w => ({
-      type: 'fill_table' as const,
-      question: w.question,
-      options: [] as string[],
-      correctIndex: -1,
-      explanation: w.explanation,
-      topic: w.topic,
-      payload: { columns: w.columns, solution: w.solution, givens: w.givens, colFormats: w.colFormats, cellFormat: w.cellFormat },
-    }))
+    // spread of positions so the exam isn't "all MCQ then all worked problems".
+    const worked = buildWorkedProblems(nWorked)
     const questions: any[] = valid.slice()
     if (worked.length) {
       const step = Math.max(1, Math.floor(questions.length / (worked.length + 1)))

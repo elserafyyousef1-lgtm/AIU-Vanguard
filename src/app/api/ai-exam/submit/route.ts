@@ -8,7 +8,7 @@
 // ───────────────────────────────────────────────────────────
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { gradeFillTable } from '@/lib/ai/grading'
+import { gradeFillTable, gradeComputeValue, gradeDeriveEquation } from '@/lib/ai/grading'
 
 export const runtime = 'nodejs'
 
@@ -49,13 +49,23 @@ export async function POST(req: NextRequest) {
       explanation: clampStr(q.explanation, 4000) || null,
       topic: clampStr(q.topic, 200) || null,
     }
-    if (q.type === 'fill_table' && q.payload) {
-      const grid = Array.isArray(answers[i]) ? answers[i] : []
+    if ((q.type === 'fill_table' || q.type === 'compute_value' || q.type === 'derive_equation') && q.payload) {
+      const ans = answers[i]
       let correct = false, payload: any = null
       try {
-        const g = gradeFillTable(q.payload, grid)
-        correct = g.max > 0 && g.score === g.max
-        payload = { type: 'fill_table', spec: q.payload, answer: grid, score: g.score, max: g.max }
+        if (q.type === 'fill_table') {
+          const gr = gradeFillTable(q.payload, Array.isArray(ans) ? ans : [])
+          correct = gr.max > 0 && gr.score === gr.max
+          payload = { type: 'fill_table', spec: q.payload, answer: ans, score: gr.score, max: gr.max }
+        } else if (q.type === 'compute_value') {
+          const gr = gradeComputeValue(q.payload, ans && typeof ans === 'object' ? ans : {})
+          correct = gr.max > 0 && gr.score === gr.max
+          payload = { type: 'compute_value', spec: q.payload, answer: ans, score: gr.score, max: gr.max }
+        } else {
+          const gr = gradeDeriveEquation(q.payload, typeof ans === 'string' ? ans : '')
+          correct = gr.correct
+          payload = { type: 'derive_equation', spec: q.payload, answer: ans, correct: gr.correct }
+        }
       } catch { correct = false }
       return { ...base, correct_index: null as number | null, chosen_index: null as number | null, correct, payload }
     }
@@ -82,9 +92,15 @@ export async function POST(req: NextRequest) {
   }
 
   // 3) mastery analytics — one boolean row per answered question (topic is NOT NULL there)
-  const nonEmptyGrid = (grid: any) => Array.isArray(grid) && grid.some((r: any) => Array.isArray(r) && r.some((c: any) => (c ?? '').toString().trim() !== ''))
+  const answeredWorked = (p: any) => {
+    const a = p?.answer
+    if (Array.isArray(a)) return a.some((r: any) => Array.isArray(r) && r.some((c: any) => (c ?? '').toString().trim() !== ''))  // fill_table grid
+    if (a && typeof a === 'object') return Object.values(a).some((v: any) => (v ?? '').toString().trim() !== '')                  // compute_value record
+    if (typeof a === 'string') return a.trim() !== ''                                                                            // derive_equation
+    return false
+  }
   const attempts = items
-    .filter((it: any) => it.chosen_index !== null || (it.payload && nonEmptyGrid(it.payload.answer)))
+    .filter((it: any) => it.chosen_index !== null || answeredWorked(it.payload))
     .map((it: any) => ({ course, topic: it.topic || 'General', difficulty, correct: it.correct, source: 'exam' }))
   if (attempts.length) await supabase.from('ai_quiz_attempts').insert(attempts)
 

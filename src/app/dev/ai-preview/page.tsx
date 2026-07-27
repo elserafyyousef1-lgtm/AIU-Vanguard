@@ -6,20 +6,42 @@ import { useState } from 'react'
 import { RichText } from '@/components/ai/RichText'
 import { FileText, Sparkles } from 'lucide-react'
 import { FillTableInput } from '@/components/ai/answers/FillTableInput'
-import { buildDivisionTable } from '@/lib/ai/worked'
-import { gradeFillTable } from '@/lib/ai/grading'
+import { ComputeValueInput } from '@/components/ai/answers/ComputeValueInput'
+import { DeriveEquationInput } from '@/components/ai/answers/DeriveEquationInput'
+import { buildDivisionTable, buildIeee754, buildDerive } from '@/lib/ai/worked'
+import { gradeFillTable, gradeComputeValue, gradeDeriveEquation } from '@/lib/ai/grading'
 
 function FillTableDemo() {
   const div = buildDivisionTable(14, 7, 4)!
   const [grid, setGrid] = useState<string[][]>([])
   const partial = div.solution.map((r, ri) => r.map((c, ci) => (ri === 0 ? c : (ci === 3 ? '99' : c))))  // row 0 blank, col-3 wrong
   const res = gradeFillTable(div, partial)
+
+  const fp = buildIeee754(228)!
+  const [cv, setCv] = useState<Record<string, string>>({})
+  const cvPartial = { sign: '0', exp: '10000110', hex: 'WRONG' }
+  const cvRes = gradeComputeValue(fp, cvPartial)
+
+  const de = buildDerive('!(A*B + C)', ['A', 'B', 'C'])!
+  const [eq, setEq] = useState('')
+  const deRes = gradeDeriveEquation(de, "(A' + B')*C'")   // De Morgan equivalent → correct
+
   return (
     <div style={{ marginBottom: 22 }}>
       <div style={{ fontSize: 12.5, color: 'var(--t3)', marginBottom: 6 }}>fill_table · answering (14 ÷ 7)</div>
       <FillTableInput payload={div} value={grid} onChange={setGrid} />
       <div style={{ fontSize: 12.5, color: 'var(--t3)', margin: '14px 0 6px' }}>fill_table · review — {res.score}/{res.max} cells</div>
       <FillTableInput payload={div} value={partial} review cellResults={res.cellResults} />
+
+      <div style={{ fontSize: 12.5, color: 'var(--t3)', margin: '18px 0 6px' }}>compute_value · answering (IEEE-754 of 228)</div>
+      <ComputeValueInput payload={fp} value={cv} onChange={setCv} />
+      <div style={{ fontSize: 12.5, color: 'var(--t3)', margin: '14px 0 6px' }}>compute_value · review — {cvRes.score}/{cvRes.max} fields</div>
+      <ComputeValueInput payload={fp} value={cvPartial} review fieldResults={cvRes.fieldResults} />
+
+      <div style={{ fontSize: 12.5, color: 'var(--t3)', margin: '18px 0 6px' }}>derive_equation · answering</div>
+      <DeriveEquationInput payload={de} value={eq} onChange={setEq} />
+      <div style={{ fontSize: 12.5, color: 'var(--t3)', margin: '14px 0 6px' }}>derive_equation · review (De Morgan form → {deRes.correct ? 'correct' : 'wrong'})</div>
+      <DeriveEquationInput payload={de} value="(A' + B')*C'" review result={deRes} />
     </div>
   )
 }
