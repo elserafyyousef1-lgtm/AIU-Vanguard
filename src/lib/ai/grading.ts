@@ -14,18 +14,25 @@ export type CellFormat = 'binary' | 'hex' | 'int' | 'text'
 export type FieldFormat = CellFormat | 'hex32' | 'bin' | 'frac'
 
 // ── shared normalizer ──────────────────────────────────────
+// Returns '∅' (a value that can never equal a real answer) for an empty or
+// malformed cell, so a BLANK is never accidentally graded correct.
 export function normValue(raw: unknown, fmt: string): string {
   let s = (raw ?? '').toString().trim()
+  if (s === '') return '∅'                                 // empty is never correct (was: binary/hex coerced '' → a valid value)
   if (fmt === 'hex32' || fmt === 'hex') {
     s = s.replace(/^0x/i, '').replace(/\s+/g, '').toUpperCase()
+    if (!/^[0-9A-F]+$/.test(s)) return '∅'
     return fmt === 'hex32' ? s.replace(/^0+/, '').padStart(8, '0') : (s.replace(/^0+(?=.)/, '') || '0')
   }
   if (fmt === 'int') {
-    const n = parseInt(s.replace(/[^0-9+-]/g, ''), 10)
-    return Number.isFinite(n) ? String(n) : '∅'
+    s = s.replace(/[−–—]/g, '-')                            // normalize unicode minus / dashes to ASCII '-'
+    if (!/^[+-]?\d+$/.test(s)) return '∅'                   // strict: reject "5-3", "5x", "5.5", … (was: salvaged the leading digits)
+    return String(parseInt(s, 10))
   }
   if (fmt === 'binary' || fmt === 'bin') {
-    return s.replace(/\s+/g, '').replace(/^0+(?=.)/, '') || '0'   // strip spaces + leading zeros
+    s = s.replace(/\s+/g, '')
+    if (!/^[01]+$/.test(s)) return '∅'                      // must be actual binary
+    return s.replace(/^0+(?=.)/, '')                        // strip leading zeros ("0001" == "1"), a lone "0" stays "0"
   }
   if (fmt === 'frac') return s.replace(/\s+/g, '')
   // text: whitespace-collapsed, case-insensitive
@@ -127,9 +134,20 @@ function evalBool(expr: string, vars: string[], assign: Record<string, 0 | 1>): 
   return out
 }
 
+// Map common textbook / keyboard notations to the parser's ASCII operators, so
+// an algebraically-equivalent answer written with ·, ×, ∧, ∨, ¬, primes, or the
+// words AND/OR/NOT/XOR is accepted (the derive_equation prompt promises this).
+const normBoolExpr = (s: string): string => (s || '')
+  .replace(/\bXOR\b/gi, '^').replace(/\bAND\b/gi, '*').replace(/\bOR\b/gi, '+').replace(/\bNOT\b/gi, '!')  // words (AND/OR/NOT/XOR are simple infix/prefix; NAND/NOR are not, left alone)
+  .replace(/[·∙⋅×∧]/g, '*').replace(/∨/g, '+').replace(/¬/g, '!').replace(/[′’`]/g, "'")                  // glyphs ('&' '|' already accepted by the parser, so not remapped)
+
 // Truth-vector of an expression over all 2^n assignments (MSB = first variable).
-function truthVector(expr: string, vars: string[]): string {
+function truthVector(rawExpr: string, vars: string[]): string {
+  // Hard cap: never loop 2^n unbounded. Guards against a hostile payload whose
+  // `variables` array is huge (2^30 iterations + a gigabyte string) — a DoS.
+  if (!Array.isArray(vars) || vars.length < 1 || vars.length > 12) throw new Error('variable count out of range')
   const n = vars.length
+  const expr = normBoolExpr(rawExpr)
   let out = ''
   for (let m = 0; m < (1 << n); m++) {
     const assign: Record<string, 0 | 1> = {}

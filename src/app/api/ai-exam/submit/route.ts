@@ -14,6 +14,18 @@ export const runtime = 'nodejs'
 
 const clampStr = (s: any, n: number) => (typeof s === 'string' ? s.slice(0, n) : '')
 
+// Reject absurdly-sized worked-problem payloads BEFORE grading/persisting them —
+// a hostile client could otherwise send a giant grid (CPU) or a huge variable list
+// (2^n blow-up) and bloat the DB row.
+const cellCount = (p: any) => Array.isArray(p?.solution) ? p.solution.reduce((n: number, r: any) => n + (Array.isArray(r) ? r.length : 0), 0) : 0
+function payloadOk(type: string, p: any): boolean {
+  if (!p || typeof p !== 'object') return false
+  if (type === 'fill_table') return Array.isArray(p.solution) && p.solution.length <= 64 && cellCount(p) <= 512
+  if (type === 'compute_value') return Array.isArray(p.fields) && p.fields.length > 0 && p.fields.length <= 32
+  if (type === 'derive_equation') return Array.isArray(p.variables) && p.variables.length >= 1 && p.variables.length <= 12 && typeof p.referenceEquation === 'string' && p.referenceEquation.length <= 400
+  return false
+}
+
 export async function POST(req: NextRequest) {
   const supabase = createClient()
 
@@ -49,7 +61,7 @@ export async function POST(req: NextRequest) {
       explanation: clampStr(q.explanation, 4000) || null,
       topic: clampStr(q.topic, 200) || null,
     }
-    if ((q.type === 'fill_table' || q.type === 'compute_value' || q.type === 'derive_equation') && q.payload) {
+    if ((q.type === 'fill_table' || q.type === 'compute_value' || q.type === 'derive_equation') && payloadOk(q.type, q.payload)) {
       const ans = answers[i]
       let correct = false, payload: any = null
       try {

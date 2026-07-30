@@ -84,9 +84,14 @@ export function extractPptxText(bytes: Uint8Array): string {
     return na - nb
   })
 
-  // 4) Inflate each slide and pull its text.
+  // 4) Inflate each slide and pull its text — BOUNDED, since the file is untrusted.
+  //    A crafted .pptx can be a decompression bomb (a few KB → gigabytes inflated),
+  //    so cap per-slide inflated size, slide count, and total accumulated text.
+  const MAX_INFLATE = 4 * 1024 * 1024   // per-slide inflated cap
+  const MAX_TOTAL = 3 * 1024 * 1024     // total extracted-text cap
   const out: string[] = []
-  for (const s of slides) {
+  let textLen = 0
+  for (const s of slides.slice(0, 500)) {
     // Local file header: data begins after 30 + nameLen + extraLen bytes.
     if (u32(bytes, s.localOff) !== 0x04034b50) continue
     const lNameLen = u16(bytes, s.localOff + 26)
@@ -95,11 +100,12 @@ export function extractPptxText(bytes: Uint8Array): string {
     const raw = bytes.subarray(dataStart, dataStart + s.compSize)
     let xml: string
     try {
-      const buf = s.method === 0 ? Buffer.from(raw) : inflateRawSync(Buffer.from(raw))
+      // maxOutputLength throws RangeError past the cap → caught below → skip that slide.
+      const buf = s.method === 0 ? Buffer.from(raw.subarray(0, MAX_INFLATE)) : inflateRawSync(Buffer.from(raw), { maxOutputLength: MAX_INFLATE })
       xml = decoder.decode(buf)
     } catch { continue }
     const t = slideText(xml)
-    if (t) out.push(t)
+    if (t) { out.push(t); textLen += t.length; if (textLen > MAX_TOTAL) break }
   }
 
   return out.join('\n\n')

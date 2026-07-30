@@ -133,9 +133,11 @@ export function ExamView({ courseSlug, courseName, onExit }: Props) {
       })
       if (!res.ok) throw new Error('save failed')
     } catch {
-      // Fallback: at least keep the mastery analytics working (client insert, as before).
-      const rows = questions.map((q, i) => ({ q, a: answers[i] })).filter(x => x.a !== null)
-        .map(x => ({ course: courseSlug, topic: x.q.topic, difficulty, correct: x.a === x.q.correctIndex, source: 'exam' }))
+      // Fallback (server save failed): keep the mastery analytics working, graded by
+      // the SAME type-aware helpers the server uses — not "=== correctIndex", which
+      // marked every worked problem (grid / record / string answer) wrong.
+      const rows = questions.map((q, i) => ({ q, a: answers[i] })).filter(x => isAnswered(x.q, x.a))
+        .map(x => ({ course: courseSlug, topic: x.q.topic, difficulty, correct: isCorrect(x.q, x.a), source: 'exam' }))
       if (rows.length) supabase.from('ai_quiz_attempts').insert(rows).then(() => {})
     } finally {
       setSaving(false)

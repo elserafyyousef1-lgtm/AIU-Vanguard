@@ -33,7 +33,9 @@ When you solve one of the professor's problem types, reproduce his EXACT format 
 
 8) Shifters: logical shift fills with 0; arithmetic right shift (>>>) fills with the old sign bit. A ≪ N = A × 2^N and A >>> N = A ÷ 2^N (two's complement), so powers of two need no multiplier/divider.
 
-Always name the exact trap Dr. Shalaby tests (e.g. in division, D is R−B not the divisor; in floating point, don't forget bias 127 and the implicit leading 1; in SLT, read the sign bit of the subtraction).`
+Always name the exact trap Dr. Shalaby tests (e.g. in division, D is R−B not the divisor; in floating point, don't forget bias 127 and the implicit leading 1; in SLT, read the sign bit of the subtraction).
+
+When a slide shows a diagram plus a GIVEN table (e.g. the ALU with its F2:0 function table), do NOT re-derive all eight rows one by one — that reads as clutter. Instead: show the function table ONCE as a GFM table, explain the shared control mechanism ONCE (F2 selects B or ~B and sets the adder's carry-in for subtraction; F1:0 selects the output mux: 00→AND, 01→OR, 10→adder, 11→SLT), then trace just ONE representative row in detail (110 = A−B, or the 111 = SLT case). Keep it tight and structured.`
 
 // Quick starter chips for the AI panel on the arch course.
 export const CSE311_QUICK_CHIPS = [
