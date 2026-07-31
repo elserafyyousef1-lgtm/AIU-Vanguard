@@ -82,6 +82,10 @@ export function AIPanel({ courseSlug, onClose, quickChips = [], currentLecture }
     : `This is a course at Alamein International University. Provide clean step-by-step help with worked examples.`
 
   const courseInfo = COURSES[courseSlug]
+  // First-open example prompts — teach what the tutor can do (worked problems for the arch course).
+  const emptyExamples = courseSlug === 'CSE311'
+    ? ['حل جدول قسمة 14 ÷ 7 بطريقة الدكتور', 'مثّل 228 في IEEE-754 (single precision)', 'اشرح جدول الـ ALU F2:0 باختصار', 'اسألني سؤال امتحان على المادة']
+    : ['اشرحلي أصعب موضوع في المادة دي', 'اعملي كويز قصير من مواد المادة', 'اديني مثال محلول خطوة بخطوة', 'إيه أهم النقط للامتحان؟']
   const systemPrompt = buildSystemPrompt(courseKnowledge, {
     courseCode: courseInfo?.code,
     courseName: courseInfo?.title,
@@ -381,9 +385,18 @@ export function AIPanel({ courseSlug, onClose, quickChips = [], currentLecture }
         {/* Messages */}
         <div style={{ flex:1, overflowY:'auto', padding:'16px 20px', display:'flex', flexDirection:'column', gap:12 }}>
           {messages.length === 0 && (
-            <div style={{ textAlign:'center', padding:'20px 0', color:'var(--t3)', fontSize:13 }}>
-              <div style={{ fontSize:28, marginBottom:10 }}>✦</div>
-              اسأل أي سؤال بالعربي أو الإنجليزي
+            <div style={{ padding:'14px 2px', color:'var(--t3)' }}>
+              <div style={{ textAlign:'center', marginBottom:14 }}>
+                <div style={{ fontSize:28, marginBottom:8 }}>✦</div>
+                <div style={{ fontSize:13.5, color:'var(--t2)', fontWeight:600, lineHeight:1.5 }}>اسألني أي حاجة في {courseInfo?.title || 'المادة'} — بالعربي أو الإنجليزي</div>
+                {courseInfo && <div style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11.5, marginTop:6 }}><FileText size={11} /> بجاوب من مواد مادتك نفسها</div>}
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+                {emptyExamples.map((ex, i) => (
+                  <button key={i} onClick={() => sendMessage(ex)}
+                    style={{ textAlign:'start', padding:'9px 12px', borderRadius:10, background:'var(--s3)', border:'1px solid var(--br)', color:'var(--t2)', cursor:'pointer', fontFamily:'var(--font)', fontSize:12.5, lineHeight:1.5, transition:'all 0.12s' }}>{ex}</button>
+                ))}
+              </div>
             </div>
           )}
 
