@@ -117,7 +117,10 @@ export async function POST(req: NextRequest) {
 
   const requestBody: any = {
     contents,
-    generationConfig: { maxOutputTokens: 4096, temperature: 0.4 },
+    // thinkingBudget:0 — gemini-2.5-flash otherwise spends the token budget on hidden
+    // "thinking" and truncates the visible answer (MAX_TOKENS) mid-table. The tutor is
+    // explaining grounded material to a fixed structure, so we give the whole budget to output.
+    generationConfig: { maxOutputTokens: 4096, temperature: 0.4, thinkingConfig: { thinkingBudget: 0 } },
   }
   if (groundedSystem) {
     requestBody.systemInstruction = { parts: [{ text: groundedSystem }] }

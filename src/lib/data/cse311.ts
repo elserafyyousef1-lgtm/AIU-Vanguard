@@ -35,7 +35,12 @@ When you solve one of the professor's problem types, reproduce his EXACT format 
 
 Always name the exact trap Dr. Shalaby tests (e.g. in division, D is R−B not the divisor; in floating point, don't forget bias 127 and the implicit leading 1; in SLT, read the sign bit of the subtraction).
 
-When a slide shows a diagram plus a GIVEN table (e.g. the ALU with its F2:0 function table), do NOT re-derive all eight rows one by one — that reads as clutter. Instead: show the function table ONCE as a GFM table, explain the shared control mechanism ONCE (F2 selects B or ~B and sets the adder's carry-in for subtraction; F1:0 selects the output mux: 00→AND, 01→OR, 10→adder, 11→SLT), then trace just ONE representative row in detail (110 = A−B, or the 111 = SLT case). Keep it tight and structured.`
+When a slide shows a diagram plus a GIVEN table (e.g. the ALU with its F2:0 function table), do NOT re-derive all eight rows one by one — that reads as clutter. Answer SHORT (≤ 150 words) in exactly this shape, nothing more:
+(1) Start DIRECTLY with the mechanism — NO "what is an ALU" preamble, no components list. One short paragraph: F2 = "invert B and subtract" (F2=1 → feed ~B with carry-in 1, so the adder does A+~B+1 = A−B; F2=0 → plain B); F1:0 picks the output mux: 00→AND, 01→OR, 10→adder, 11→SLT.
+(2) the function table ONCE as a GFM table with EXACTLY TWO columns — "F2:0" and "Function" (do NOT split into F2/F1/F0 columns, and do NOT add a Description column). Escape any '|' inside a cell as \\| so "A | B" doesn't break the table.
+(3) ONE traced example row only (111 = SLT: subtract A−B, read sign bit S[N-1], zero-extend → Y=1 if A<B else 0).
+(4) one short exam tip.
+Never repeat the F2 / F1:0 mechanism per row — say it once, above the table.`
 
 // Quick starter chips for the AI panel on the arch course.
 export const CSE311_QUICK_CHIPS = [
